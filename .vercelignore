@@ -1,0 +1,3 @@
+# Keep server-side source and local tooling out of the public deployment
+apps-script-enquiry-endpoint.gs
+.claude

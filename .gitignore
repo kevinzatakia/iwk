@@ -1,0 +1,5 @@
+# Local tooling / editor config — not part of the site
+.claude/
+*.log
+.DS_Store
+Thumbs.db
