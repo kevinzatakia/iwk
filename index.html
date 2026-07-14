@@ -41,12 +41,17 @@
   --green-tint: #E3EDE4;
   --gold: #C9A227;
   --gold-soft: #E8D9A8;
+  /* full-bleed section surfaces — see .band */
+  --band-warm: #ECF0E3;
+  --band-mint: #E3EDE4;
   --wa: #25D366;
   --line: #DDE4D8;
   --radius: 18px;
   --shadow: 0 10px 30px -12px rgba(13, 59, 42, .18);
   --sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --serif: 'Playfair Display', Georgia, serif;
+  /* --serif: 'Playfair Display', Georgia, serif; */
+  --serif: Georgia, 'Times New Roman', Times, serif;
+  /* --serif: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif; */
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -60,32 +65,12 @@ body {
   overflow-x: hidden;
 }
 
-/* ---------- decorative background ---------- */
-.bg-scene {
-  position: fixed; inset: 0; z-index: -1; overflow: hidden;
-  background:
-    radial-gradient(1000px 600px at 85% -10%, rgba(23,105,74,.10), transparent 60%),
-    radial-gradient(800px 500px at -10% 30%, rgba(201,162,39,.10), transparent 60%),
-    radial-gradient(900px 700px at 70% 110%, rgba(23,105,74,.08), transparent 55%),
-    var(--ivory);
-}
-.bg-scene::before {
-  content: ""; position: absolute; inset: 0;
-  background-image: radial-gradient(rgba(13,59,42,.055) 1px, transparent 1.5px);
-  background-size: 26px 26px;
-  mask-image: linear-gradient(to bottom, black 0%, transparent 45%, transparent 70%, black 100%);
-  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 45%, transparent 70%, black 100%);
-}
-.blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .5; }
-.blob-1 { width: 420px; height: 420px; top: -140px; right: -100px; background: radial-gradient(circle, rgba(23,105,74,.25), transparent 70%); animation: drift 16s ease-in-out infinite alternate; }
-.blob-2 { width: 360px; height: 360px; top: 38%; left: -160px; background: radial-gradient(circle, rgba(201,162,39,.22), transparent 70%); animation: drift 20s ease-in-out infinite alternate-reverse; }
-.blob-3 { width: 460px; height: 460px; bottom: -180px; right: 8%; background: radial-gradient(circle, rgba(23,105,74,.18), transparent 70%); animation: drift 24s ease-in-out infinite alternate; }
-@keyframes drift {
-  from { transform: translate(0, 0) scale(1); }
-  to   { transform: translate(40px, 30px) scale(1.08); }
-}
+/* ---------- page surface ---------- */
+/* Solid, flat page background. Sections get their own solid colour via .band,
+   so the surfaces meet at crisp edges with no gradient wash between them. */
+.bg-scene { position: fixed; inset: 0; z-index: -1; background: var(--ivory); }
+
 @media (prefers-reduced-motion: reduce) {
-  .blob { animation: none; }
   html { scroll-behavior: auto; }
 }
 
@@ -94,9 +79,7 @@ body {
 /* ---------- header ---------- */
 header {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(247, 248, 242, .82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--ivory);
   border-bottom: 1px solid var(--line);
 }
 .nav {
@@ -118,7 +101,53 @@ header {
 .nav-cta:hover { background: var(--green-deep); transform: translateY(-1px); }
 
 /* ---------- hero ---------- */
-.hero { padding-top: clamp(52px, 9vw, 96px); padding-bottom: clamp(36px, 6vw, 56px); position: relative; }
+/* Small screens: one column following source order, so the portrait lands
+   between the headline and the intro paragraph. */
+.hero {
+  padding-top: clamp(52px, 9vw, 96px); padding-bottom: clamp(36px, 6vw, 56px);
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.hero-photo { justify-self: center; width: 100%; max-width: 210px; margin: 26px 0 4px; }
+/* Portrait. The source is wider than it is tall, so a square container crops
+   only left/right — and the face is centred horizontally, so it can never be
+   cut off. object-position stays centred for that reason. */
+.hero-photo img {
+  /* height:auto is required — the width/height attributes map to a presentational
+     height, and aspect-ratio is ignored unless a dimension is auto. */
+  width: 100%; height: auto; aspect-ratio: 1 / 1;
+  object-fit: cover; object-position: center;
+  border-radius: 50%;
+  border: 5px solid #fff;
+  box-shadow: 0 18px 44px -18px rgba(13,59,42,.4);
+  display: block;
+}
+
+/* From 621px up: two columns, with the portrait lifted out of the text flow
+   into its own column beside it. */
+@media (min-width: 621px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) clamp(190px, 24vw, 300px);
+    column-gap: clamp(28px, 5vw, 56px);
+    align-content: center;
+    grid-template-areas:
+      "eyebrow photo"
+      "title   photo"
+      "lede    photo"
+      "ctas    photo"
+      "note    photo";
+  }
+  .hero > .eyebrow    { grid-area: eyebrow; justify-self: start; }
+  .hero > h1          { grid-area: title; }
+  .hero > p           { grid-area: lede; }
+  .hero > .hero-ctas  { grid-area: ctas; }
+  .hero > .hero-note  { grid-area: note; }
+  .hero > .hero-photo {
+    grid-area: photo; align-self: center;
+    justify-self: stretch; width: auto; max-width: none; margin: 0;
+  }
+}
 .eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
   font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
@@ -173,6 +202,24 @@ header {
 }
 .section-sub { font-size: 14.5px; color: var(--ink-soft); max-width: 560px; }
 
+/* Full-bleed section surfaces. Sections stay width-constrained by .wrap, so the
+   colour is painted behind them by a box-shadow that spreads sideways. A shadow
+   is used rather than a 100vw strip because 100vw *includes the scrollbar*, which
+   overflows the page by ~15px; shadows don't affect layout, so this can't add a
+   horizontal scrollbar. clip-path lets the shadow bleed out sideways while
+   clipping it flush to the section vertically, so it can't leak into neighbours.
+   The rhythm alternates: no two adjacent sections share a background. */
+.band { position: relative; z-index: 0; }
+.band::before {
+  content: "";
+  position: absolute; inset: 0;
+  z-index: -1; pointer-events: none;
+  clip-path: inset(0 -100vmax);
+}
+.band-warm::before { background: var(--band-warm); box-shadow: 0 0 0 100vmax var(--band-warm); }
+.band-mint::before { background: var(--band-mint); box-shadow: 0 0 0 100vmax var(--band-mint); }
+.band-deep::before { background: var(--green-deep); box-shadow: 0 0 0 100vmax var(--green-deep); }
+
 /* ---------- picker ---------- */
 #picker, #why, #testimonials, #faq, #contact { scroll-margin-top: 84px; }
 .picker-card {
@@ -201,7 +248,7 @@ header {
 
 /* ---------- why ---------- */
 .why {
-  background: linear-gradient(135deg, var(--green-dark), var(--green-deep) 60%, #14503A);
+  background: var(--green-deep);
   border-radius: 26px; color: #fff;
   padding: clamp(30px, 5vw, 48px);
   position: relative; overflow: hidden;
@@ -242,6 +289,7 @@ header {
   display: grid; place-items: center; font-weight: 800; font-size: 16px;
   background: var(--green-tint); color: var(--green-deep);
 }
+.tst-person-text { text-align: left; }
 .tst-name { font-weight: 700; font-size: 14.5px; color: var(--ink); }
 .tst-meta { font-size: 12.5px; color: var(--ink-mute); }
 .tst-dots { display: flex; justify-content: center; gap: 9px; margin-top: 24px; }
@@ -253,13 +301,112 @@ header {
 .tst-dot.on { background: var(--green); transform: scale(1.25); }
 
 /* ---------- CTA ---------- */
+/* Sits on the deep-green band, so its type and buttons invert. Gold appears
+   here as an accent on the product name — its role everywhere else too. */
 .cta { text-align: center; }
-.cta-lead { font-size: 16px; color: var(--ink-soft); }
-.cta-lead b { color: var(--green-deep); }
+.cta-lead { font-size: 16px; color: rgba(255,255,255,.82); }
+.cta-lead b { color: var(--gold-soft); }
 .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 22px; }
 .btn-wa { background: var(--wa); color: #fff; box-shadow: 0 10px 24px -10px rgba(37,211,102,.55); }
 .btn-wa:hover { background: #1EBE5A; transform: translateY(-2px); }
-.cta-fine { margin-top: 16px; font-size: 12.5px; color: var(--ink-mute); }
+.cta .btn-primary { background: #fff; color: var(--green-deep); }
+.cta .btn-primary:hover { background: var(--ivory); color: var(--green-dark); }
+.cta .btn-ghost { color: #fff; border-color: rgba(255,255,255,.45); }
+.cta .btn-ghost:hover { background: rgba(255,255,255,.12); border-color: #fff; }
+.cta-fine { margin-top: 16px; font-size: 12.5px; color: rgba(255,255,255,.6); }
+
+/* ---------- Companies I Work With ---------- */
+.partners-head {
+  text-align: center;
+  margin-bottom: 36px;
+}
+.partners-slider {
+  position: relative;
+  overflow: hidden;
+  padding: 10px 0 20px;
+}
+.partners-track {
+  display: flex;
+  gap: 24px;
+  transition: transform 0.4s ease-in-out;
+}
+.partner-card {
+  flex: 0 0 calc(20% - 20px); /* Displays 5 cards per view on large screens */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.partner-icon-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background-color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 12px rgba(201, 205, 203, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+  padding: 14px;
+}
+.partner-card:hover .partner-icon-circle {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+}
+.partner-logo-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.partner-name {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--ink);
+  max-width: 140px;
+}
+
+/* Slider Controls */
+.partners-nav {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+.partner-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-soft);
+  background: transparent;
+  color: var(--ink);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.partner-btn:hover {
+  background: var(--green);
+  border-color: var(--green);
+  color: #ffffff;
+}
+
+/* Responsiveness for smaller screens */
+@media (max-width: 900px) {
+  .partner-card {
+    flex: 0 0 calc(33.333% - 16px); /* 3 items per view */
+  }
+}
+@media (max-width: 600px) {
+  .partner-card {
+    flex: 0 0 calc(50% - 12px); /* 2 items per view */
+  }
+}
 
 /* ---------- form ---------- */
 .form-card {
@@ -344,9 +491,8 @@ textarea.f { resize: vertical; min-height: 84px; }
 
 /* ---------- footer ---------- */
 footer {
-  margin-top: clamp(28px, 5vw, 48px);
   border-top: 1px solid var(--line);
-  background: linear-gradient(to bottom, transparent, rgba(23,105,74,.06));
+  background: var(--band-mint);
   padding: clamp(34px, 6vw, 52px) 0 110px;
   text-align: center;
 }
@@ -436,11 +582,7 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
 </head>
 <body>
 
-<div class="bg-scene" aria-hidden="true">
-  <div class="blob blob-1"></div>
-  <div class="blob blob-2"></div>
-  <div class="blob blob-3"></div>
-</div>
+<div class="bg-scene" aria-hidden="true"></div>
 
 <header>
   <div class="wrap nav">
@@ -456,9 +598,14 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
 </header>
 
 <main>
+  <!-- Source order is the small-screen order: eyebrow, headline, portrait, intro,
+       CTAs, note. From 621px up, grid areas lift the portrait into its own column. -->
   <section class="wrap hero">
     <span class="eyebrow">Independent Insurance Advisor</span>
     <h1>Let's find the right cover for your life, <em>together.</em></h1>
+    <div class="hero-photo">
+      <img src="images/kevin.jpg" width="640" height="545" alt="Kevin Zatakia, independent insurance advisor" fetchpriority="high" decoding="async">
+    </div>
     <p>I'm Kevin, an independent insurance advisor. Tell me what you're looking to protect and I'll help you compare, choose and apply, with no jargon and no pressure.</p>
     <div class="hero-ctas">
       <a class="btn btn-primary" href="#picker">Get started</a>
@@ -467,24 +614,8 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
     <div class="hero-note"><b>Free advice</b> · replies within a few hours · Hindi &amp; Gujarati welcome</div>
   </section>
 
-  <section class="wrap">
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <h3>Tell me what you need</h3>
-        <p>Pick a product below, or say you're not sure yet; that's completely fine.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <h3>I compare your options</h3>
-        <p>I check plans across insurers and explain them simply, fine print included.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <h3>You choose, no pressure</h3>
-        <p>Take your time. I'm here to help, not to push.</p>
-      </div>
-    </div>
+  <section class="wrap section band band-warm">
+    <div class="steps" id="stepsGrid"></div>
   </section>
 
   <section class="wrap section" id="picker">
@@ -500,130 +631,36 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
   <section class="wrap section" id="why">
     <div class="why">
       <h2>Why clients work <em>with me</em></h2>
-      <div class="why-grid">
-        <div class="why-item">
-          <span class="ic">🧭</span>
-          <h3>Truly independent</h3>
-          <p>Advice across every major insurer, and I'm not tied to any one company.</p>
-        </div>
-        <div class="why-item">
-          <span class="ic">🔍</span>
-          <h3>Fine print, decoded</h3>
-          <p>I walk you through exclusions and waiting periods before you sign anything.</p>
-        </div>
-        <div class="why-item">
-          <span class="ic">📞</span>
-          <h3>Direct line to me</h3>
-          <p>You reach me personally, with no call centres and no hold music, ever.</p>
-        </div>
-      </div>
+      <div class="why-grid" id="whyGrid"></div>
     </div>
   </section>
 
-  <section class="wrap section" id="testimonials">
+  <section class="wrap section band band-mint" id="testimonials">
     <div class="tst-head">
       <h2>What clients <em>say</em></h2>
       <p>Real words from people I've helped find the right cover.</p>
     </div>
     <div class="tst-slider" id="tstSlider">
-      <div class="tst-track" id="tstTrack">
-        <div class="tst-slide">
-          <div class="tst-card">
-            <div class="tst-stars">★★★★★</div>
-            <p class="tst-quote">Kevin compared plans from five insurers and explained the fine print in plain language. I finally understood what I was actually buying.</p>
-            <div class="tst-person">
-              <span class="tst-avatar">AK</span>
-              <div style="text-align:left">
-                <div class="tst-name">Aman Kumbhani</div>
-                <div class="tst-meta">Term Life</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="tst-slide">
-          <div class="tst-card">
-            <div class="tst-stars">★★★★★</div>
-            <p class="tst-quote">No pushy sales calls, just honest advice. He flagged a waiting-period clause that would have cost me dearly at claim time.</p>
-            <div class="tst-person">
-              <span class="tst-avatar">SM</span>
-              <div style="text-align:left">
-                <div class="tst-name">Siyara Mascarenhas</div>
-                <div class="tst-meta">Health Insurance</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="tst-slide">
-          <div class="tst-card">
-            <div class="tst-stars">★★★★★</div>
-            <p class="tst-quote">Porting my family floater felt daunting until Kevin walked me through it step by step. Smooth, quick and completely stress-free.</p>
-            <div class="tst-person">
-              <span class="tst-avatar">BG</span>
-              <div style="text-align:left">
-                <div class="tst-name">Binny Gulrajani</div>
-                <div class="tst-meta">Family Floater</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="tst-slide">
-          <div class="tst-card">
-            <div class="tst-stars">★★★★★</div>
-            <p class="tst-quote">I reach Kevin directly whenever I have a question, with no call centres or hold music. That personal touch made all the difference.</p>
-            <div class="tst-person">
-              <span class="tst-avatar">MG</span>
-              <div style="text-align:left">
-                <div class="tst-name">Maitri Gandhi</div>
-                <div class="tst-meta">Motor Insurance</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="tst-slide">
-          <div class="tst-card">
-            <div class="tst-stars">★★★★★</div>
-            <p class="tst-quote">Being truly independent, he had no reason to oversell. He recommended a smaller premium plan that fit my actual needs perfectly.</p>
-            <div class="tst-person">
-              <span class="tst-avatar">LI</span>
-              <div style="text-align:left">
-                <div class="tst-name">Lakshman Iyer</div>
-                <div class="tst-meta">Term Life</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="tst-slide">
-          <div class="tst-card">
-            <div class="tst-stars">★★★★★</div>
-            <p class="tst-quote">Fast, clear and genuinely caring. Kevin replied within the hour and had a quote ready the same day. Highly recommend him.</p>
-            <div class="tst-person">
-              <span class="tst-avatar">MD</span>
-              <div style="text-align:left">
-                <div class="tst-name">Melissa D'Souza</div>
-                <div class="tst-meta">Health Insurance</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="tst-slide">
-          <div class="tst-card">
-            <div class="tst-stars">★★★★★</div>
-            <p class="tst-quote">When my grandfather was hospitalised, Kevin walked us through the entire cashless claim process step by step. He coordinated with the insurer and the hospital desk so the approval came through smoothly, right when we needed it most.</p>
-            <div class="tst-person">
-              <span class="tst-avatar">FG</span>
-              <div style="text-align:left">
-                <div class="tst-name">Falvi Ghia</div>
-                <div class="tst-meta">Claim Settled</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div class="tst-track" id="tstTrack"></div>
     </div>
     <div class="tst-dots" id="tstDots"></div>
   </section>
 
-  <section class="wrap section cta">
+  <!-- Companies / Partners Section -->
+<section class="wrap section band band-warm" id="companies">
+  <div class="partners-head">
+    <h2 class="section-title text-center">Companies I work with</h2>
+  </div>
+  <div class="partners-slider" id="partnersSlider">
+    <div class="partners-track" id="partnersTrack"></div>
+  </div>
+  <div class="partners-nav">
+    <button type="button" class="partner-btn" id="partnerPrev" aria-label="Previous partners">←</button>
+    <button type="button" class="partner-btn" id="partnerNext" aria-label="Next partners">→</button>
+  </div>
+</section>
+
+  <section class="wrap section cta band band-deep">
     <div class="cta-lead">Interested in <b id="ctaLabel">a policy</b>? Let's talk.</div>
     <div class="cta-row">
       <a class="btn btn-wa" id="ctaWa" href="#" target="_blank" rel="noopener">WhatsApp Kevin</a>
@@ -687,7 +724,7 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
     </form>
   </section>
 
-  <section class="wrap section faq" id="faq">
+  <section class="wrap section faq band band-warm" id="faq">
     <h2 class="section-title">A few common questions</h2>
     <div id="faqList" style="margin-top:18px"></div>
   </section>
@@ -713,6 +750,30 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
       <a href="https://www.instagram.com/insureitwithkevin?igsh=NXVzaHdkeWVvZDRs&utm_source=qr" target="_blank" rel="noopener" aria-label="Instagram">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>
       </a>
+      <a href="https://www.linkedin.com/in/kevin-zatakia-808849b1/" target="_blank" rel="noopener" aria-label="LinkedIn">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="none" aria-hidden="true">
+          <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+        </svg>
+      </a>
+      <!-- <a href="" target="_blank" rel="noopener" aria-label="Instagram">
+  <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+    <defs>
+      <radialGradient id="ig-icon-gradient" cx="20%" cy="100%" r="125%" fx="20%" fy="100%">
+        <stop offset="0%" stop-color="#fdf497" />
+        <stop offset="5%" stop-color="#fdf497" />
+        <stop offset="45%" stop-color="#fd5949" />
+        <stop offset="60%" stop-color="#d6249f" />
+        <stop offset="90%" stop-color="#285AEB" />
+      </radialGradient>
+    </defs>
+    <!-- App Icon Gradient Background -->
+    <!-- <rect width="24" height="24" rx="5.5" fill="url(#ig-icon-gradient)" /> -->
+    <!-- White Camera Outline & Details -->
+    <!-- <rect x="5" y="5" width="14" height="14" rx="4" fill="none" stroke="#ffffff" stroke-width="1.5" />
+    <circle cx="12" cy="12" r="3.2" fill="none" stroke="#ffffff" stroke-width="1.5" />
+    <circle cx="15.8" cy="8.2" r="0.8" fill="#ffffff" />
+  </svg>
+</a> -->
     </div>
     <div class="foot-fine">© 2026 Insure It With Kevin. All rights reserved.</div>
     <div class="foot-contact">kevinzatakia10@gmail.com</div>
@@ -727,6 +788,15 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
 </a>
 
 <script>
+// Shared builder helper: an element with an optional class and text.
+// textContent (never innerHTML) keeps every builder below injection-safe.
+function el(tag, cls, text) {
+  var node = document.createElement(tag);
+  if (cls) { node.className = cls; }
+  if (text) { node.textContent = text; }
+  return node;
+}
+
 (function () {
   var WA_NUM = '918369988285';
   var EMAIL = 'kevinzatakia10@gmail.com';
@@ -745,6 +815,20 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
     'Personal Accident': 'Pays out for injury, disability or death from an accident.',
     'Port my policy': 'Already have a policy but want to switch insurers without losing your benefits.'
   };
+  // "How it works" cards. The number is the position, so it's not stored.
+  var STEPS = [
+    { title: 'Tell me what you need', text: "Pick a product below, or say you're not sure yet; that's completely fine." },
+    { title: 'I compare your options', text: 'I check plans across insurers and explain them simply, fine print included.' },
+    { title: 'You choose, no pressure', text: "Take your time. I'm here to help, not to push." }
+  ];
+
+  // "Why clients work with me" cards.
+  var WHY = [
+    { icon: '🧭', title: 'Truly independent', text: "Advice across every major insurer, and I'm not tied to any one company." },
+    { icon: '🔍', title: 'Fine print, decoded', text: 'I walk you through exclusions and waiting periods before you sign anything.' },
+    { icon: '📞', title: 'Direct line to me', text: 'You reach me personally, with no call centres and no hold music, ever.' }
+  ];
+
   var FAQS = [
     { q: 'Do I need an advisor if I can just buy a policy online?', a: 'You can, but the fine print (exclusions, waiting periods, claim process) varies a lot between insurers. I help you compare that properly, and I\'m there when you actually need to file a claim.' },
     { q: 'Do you charge a fee for advice?', a: 'No, my advice is free. Insurers pay me a standard commission, which doesn\'t change your premium.' },
@@ -799,6 +883,26 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
     label.appendChild(cb);
     label.appendChild(document.createTextNode(p));
     boxesEl.appendChild(label);
+  });
+
+  // build "how it works" steps
+  var stepsGrid = document.getElementById('stepsGrid');
+  STEPS.forEach(function (s, i) {
+    var step = el('div', 'step');
+    step.appendChild(el('div', 'step-num', String(i + 1)));
+    step.appendChild(el('h3', '', s.title));
+    step.appendChild(el('p', '', s.text));
+    stepsGrid.appendChild(step);
+  });
+
+  // build "why clients work with me" cards
+  var whyGrid = document.getElementById('whyGrid');
+  WHY.forEach(function (w) {
+    var item = el('div', 'why-item');
+    item.appendChild(el('span', 'ic', w.icon));
+    item.appendChild(el('h3', '', w.title));
+    item.appendChild(el('p', '', w.text));
+    whyGrid.appendChild(item);
   });
 
   // build FAQs
@@ -1057,15 +1161,88 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
   render();
 })();
 
-/* ---------- testimonials slider ---------- */
+/* ---------- testimonials ---------- */
 (function () {
+  // Card data. Add, remove or reorder entries here and the slider, its dots and
+  // the avatar initials all follow automatically — no markup changes needed.
+  var TESTIMONIALS = [
+    {
+      quote: 'Kevin compared plans from five insurers and explained the fine print in plain language. I finally understood what I was actually buying.',
+      name: 'Aman Kumbhani',
+      tag: 'Term Life'
+    },
+    {
+      quote: 'No pushy sales calls, just honest advice. He flagged a waiting-period clause that would have cost me dearly at claim time.',
+      name: 'Siyara Mascarenhas',
+      tag: 'Health Insurance'
+    },
+    {
+      quote: 'Porting my family floater felt daunting until Kevin walked me through it step by step. Smooth, quick and completely stress-free.',
+      name: 'Binny Gulrajani',
+      tag: 'Family Floater'
+    },
+    {
+      quote: 'I reach Kevin directly whenever I have a question, with no call centres or hold music. That personal touch made all the difference.',
+      name: 'Maitri Gandhi',
+      tag: 'Motor Insurance'
+    },
+    {
+      quote: 'Being truly independent, he had no reason to oversell. He recommended a smaller premium plan that fit my actual needs perfectly.',
+      name: 'Lakshman Iyer',
+      tag: 'Term Life'
+    },
+    {
+      quote: 'Fast, clear and genuinely caring. Kevin replied within the hour and had a quote ready the same day. Highly recommend him.',
+      name: "Melissa D'Souza",
+      tag: 'Health Insurance'
+    },
+    {
+      quote: 'When my grandfather was hospitalised, Kevin walked us through the entire cashless claim process step by step. He coordinated with the insurer and the hospital desk so the approval came through smoothly, right when we needed it most.',
+      name: 'Falvi Ghia',
+      tag: 'Claim Settled'
+    }
+  ];
+
+  var STARS = 5;
+
   var track = document.getElementById('tstTrack');
   var slider = document.getElementById('tstSlider');
   var dotsWrap = document.getElementById('tstDots');
   if (!track || !slider || !dotsWrap) return;
 
-  // Number of real slides, captured before we append a clone for looping.
-  var count = track.children.length;
+  // "Aman Kumbhani" -> "AK"
+  function initials(name) {
+    return name.split(/\s+/)
+      .map(function (w) { return w.charAt(0); })
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  // The reusable card: one testimonial object in, one finished slide out.
+  function buildSlide(t) {
+    var card = el('div', 'tst-card');
+    card.appendChild(el('div', 'tst-stars', new Array(STARS + 1).join('★')));
+    card.appendChild(el('p', 'tst-quote', t.quote));
+
+    var text = el('div', 'tst-person-text');
+    text.appendChild(el('div', 'tst-name', t.name));
+    text.appendChild(el('div', 'tst-meta', t.tag));
+
+    var person = el('div', 'tst-person');
+    person.appendChild(el('span', 'tst-avatar', initials(t.name)));
+    person.appendChild(text);
+    card.appendChild(person);
+
+    var slide = el('div', 'tst-slide');
+    slide.appendChild(card);
+    return slide;
+  }
+
+  TESTIMONIALS.forEach(function (t) { track.appendChild(buildSlide(t)); });
+
+  var count = TESTIMONIALS.length;
+  if (!count) return;
   var index = 0;
   var timer = null;
   var DELAY = 5000;
@@ -1098,18 +1275,30 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
     track.style.transform = 'translateX(' + (-index * 100) + '%)';
     setDots(index % count);
   }
-  function next() { slideTo(index + 1); }
+
+  // Snap with no animation — used to make the clone-to-first reset invisible.
+  function jumpTo(n) {
+    track.style.transition = 'none';
+    index = n;
+    track.style.transform = 'translateX(' + (-index * 100) + '%)';
+    track.offsetWidth; // force reflow so the next move animates again
+    track.style.transition = '';
+    setDots(index % count);
+  }
+
+  function next() {
+    // Safety net: if a reset was ever missed (the transition can fail to
+    // complete when the page isn't painting), snap back before advancing so
+    // index can't run past the clone and strand the track on blank space.
+    if (index >= count) { jumpTo(0); }
+    slideTo(index + 1);
+  }
 
   // When the move into the clone finishes, jump back to the real first slide
   // with no animation so the reset is invisible.
-  track.addEventListener('transitionend', function () {
-    if (index === count) {
-      track.style.transition = 'none';
-      index = 0;
-      track.style.transform = 'translateX(0%)';
-      track.offsetWidth; // force reflow so the next move animates again
-      track.style.transition = '';
-    }
+  track.addEventListener('transitionend', function (e) {
+    if (e.target !== track || e.propertyName !== 'transform') { return; }
+    if (index === count) { jumpTo(0); }
   });
 
   function start() {
@@ -1124,6 +1313,143 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
   slider.addEventListener('mouseleave', start);
 
   start();
+
+  
+})();
+
+(function () {
+  // Reusable Array holding Partner Companies & Logo URLs
+  var COMPANIES = [
+    {
+      name: "New India Assurance Co. Ltd.",
+      logo: "images/New_India_Assurance.svg"
+    },
+    {
+      name: "Oriental Insurance Co. Ltd.",
+      logo: "images/Oriental_Insurance_Company_logo.jpeg"
+    },
+    {
+      name: "Generali Central Insurance",
+      logo: "images/Generali_Central_Insurance.png"
+    },
+    {
+      name: "HDFC ERGO General Insurance",
+      logo: "images/HDFC_Ergo_Logo_2025.png"
+    },
+    {
+      name: "TATA AIG",
+      logo: "images/Tata_AIG_Logo.png"
+    },
+    {
+      name: "LIC",
+      logo: "images/LIC_Logo.jpg"
+    },
+    {
+      name: "Bajaj General Insurance Co. Ltd.",
+      logo: "images/Bajaj_Allianz_General_Insurance_Logo.png"
+    },
+    {
+      name: "TATA AIA",
+      logo: "images/Tata_AIA_Life_Insurance_Logo.png"
+    },
+    {
+      name: "HDFC Life",
+      logo: "images/HDFC_Life_Logo.svg"
+    },
+    {
+      name: "Care Health",
+      logo: "images/Care_Health_Insurance_Logo.webp"
+    }
+  ];
+
+  var track = document.getElementById('partnersTrack');
+  var prevBtn = document.getElementById('partnerPrev');
+  var nextBtn = document.getElementById('partnerNext');
+
+  if (!track) return;
+
+  // Reusable Component function to build a Partner Card
+  function createPartnerCard(company) {
+    var card = document.createElement('div');
+    card.className = 'partner-card';
+
+    var circle = document.createElement('div');
+    circle.className = 'partner-icon-circle';
+
+    var img = document.createElement('img');
+    img.src = company.logo;
+    img.alt = company.name + " logo";
+    img.className = 'partner-logo-img';
+    img.loading = 'lazy';
+    
+    // Fallback if logo image fails to load
+    img.onerror = function() {
+      console.error('Failed to load logo image:', this.src);
+      console.error('Image error event details:', event);
+
+      this.style.display = 'none';
+      circle.textContent = company.name.charAt(0);
+      circle.style.fontWeight = 'bold';
+      circle.style.fontSize = '24px';
+      circle.style.color = 'var(--green-deep)';
+    };
+
+    circle.appendChild(img);
+
+    var name = document.createElement('div');
+    name.className = 'partner-name';
+    name.textContent = company.name;
+
+    card.appendChild(circle);
+    card.appendChild(name);
+
+    return card;
+  }
+
+  // Populate the slider track dynamically
+  COMPANIES.forEach(function (company) {
+    track.appendChild(createPartnerCard(company));
+  });
+
+  // Slider Logic
+  var currentIndex = 0;
+
+  function getVisibleCards() {
+    if (window.innerWidth <= 600) return 2;
+    if (window.innerWidth <= 900) return 3;
+    return 5;
+  }
+
+  function updateSlider() {
+    var visibleCards = getVisibleCards();
+    var maxIndex = Math.max(0, COMPANIES.length - visibleCards);
+    if (currentIndex > maxIndex) currentIndex = maxIndex;
+    if (currentIndex < 0) currentIndex = 0;
+
+    var cardWidth = track.children[0].getBoundingClientRect().width + 24; // Width + gap
+    track.style.transform = 'translateX(' + (-currentIndex * cardWidth) + 'px)';
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function () {
+      var visibleCards = getVisibleCards();
+      if (currentIndex < COMPANIES.length - visibleCards) {
+        currentIndex++;
+        updateSlider();
+      }
+    });
+  }
+
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function () {
+      if (currentIndex > 0) {
+        currentIndex--;
+        updateSlider();
+      }
+    });
+  }
+
+  window.addEventListener('resize', updateSlider);
 })();
 </script>
 </body>
