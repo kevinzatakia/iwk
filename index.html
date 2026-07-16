@@ -92,7 +92,7 @@ header {
 .nav-brand-name b { color: var(--green); font-weight: 700; }
 .nav-links { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .nav-links a { text-decoration: none; font-size: 13.5px; font-weight: 700; }
-.nav-ig { color: var(--ink-soft); padding: 9px 8px; border-radius: 10px; transition: color .15s; }
+.nav-ig { display: inline-flex; align-items: center; color: var(--ink-soft); padding: 9px 8px; border-radius: 10px; transition: color .15s; }
 .nav-ig:hover { color: var(--green); }
 .nav-cta {
   color: #fff; background: var(--green); padding: 10px 18px; border-radius: 999px;
@@ -292,13 +292,23 @@ header {
 .tst-person-text { text-align: left; }
 .tst-name { font-weight: 700; font-size: 14.5px; color: var(--ink); }
 .tst-meta { font-size: 12.5px; color: var(--ink-mute); }
-.tst-dots { display: flex; justify-content: center; gap: 9px; margin-top: 24px; }
+.tst-controls { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 24px; }
+.tst-dots { display: flex; justify-content: center; gap: 9px; }
 .tst-dot {
   width: 9px; height: 9px; border-radius: 50%; border: none; cursor: pointer; padding: 0;
   background: var(--line); transition: background .2s, transform .2s;
 }
 .tst-dot:hover { background: var(--ink-mute); }
 .tst-dot.on { background: var(--green); transform: scale(1.25); }
+.tst-arrow {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid var(--line); background: #fff; color: var(--ink);
+  font-size: 17px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s, border-color .2s, color .2s, transform .2s;
+}
+.tst-arrow:hover { background: var(--green); border-color: var(--green); color: #fff; transform: translateY(-1px); }
+.tst-arrow:active { transform: scale(.94); }
 
 /* ---------- CTA ---------- */
 /* Sits on the deep-green band, so its type and buttons invert. Gold appears
@@ -338,26 +348,31 @@ header {
   text-align: center;
 }
 .partner-icon-circle {
-  width: 90px;
-  height: 90px;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
-  background-color: var(--white);
+  background-color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 14px;
-  box-shadow: 0 4px 12px rgba(201, 205, 203, 0.08);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 14px -8px rgba(13, 59, 42, 0.15);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   overflow: hidden;
-  padding: 14px;
+  padding: 18px;
 }
 .partner-card:hover .partner-icon-circle {
   transform: translateY(-4px);
   box-shadow: var(--shadow);
 }
+/* Uniform sizing: cap both dimensions so wide wordmarks and square marks read
+   at the same optical size. Logos keep their original brand colours. */
 .partner-logo-img {
   max-width: 100%;
-  max-height: 100%;
+  max-height: 46px;
+  width: auto;
+  height: auto;
   object-fit: contain;
 }
 .partner-name {
@@ -451,8 +466,9 @@ textarea.f { resize: vertical; min-height: 84px; }
 }
 .claim-btn.on { background: var(--green); border-color: var(--green); color: #fff; }
 .claim-detail { margin-bottom: 18px; animation: claimReveal .25s ease; }
+.port-type-field { animation: claimReveal .25s ease; }
 @keyframes claimReveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-@media (prefers-reduced-motion: reduce) { .claim-detail { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .claim-detail, .port-type-field { animation: none; } }
 .port-file { width: 100%; font-size: 13.5px; font-family: var(--sans); }
 .port-note { margin-top: 7px; font-size: 12px; color: var(--ink-mute); }
 .form-submit {
@@ -591,8 +607,7 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
       <span class="nav-brand-name">insureitwith<b>kevin</b></span>
     </a>
     <nav class="nav-links">
-      <!-- <a class="nav-ig" href="https://www.instagram.com/insureitwithkevin?igsh=NXVzaHdkeWVvZDRs&utm_source=qr" target="_blank" rel="noopener">Instagram</a> -->
-      <a href="https://www.instagram.com/insureitwithkevin?igsh=NXVzaHdkeWVvZDRs&utm_source=qr" target="_blank" rel="noopener" aria-label="Instagram">
+      <a class="nav-ig" href="https://www.instagram.com/insureitwithkevin?igsh=NXVzaHdkeWVvZDRs&utm_source=qr" target="_blank" rel="noopener" aria-label="Instagram">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>
       </a>
       <a class="nav-cta" href="#picker">Pick your policy →</a>
@@ -646,7 +661,11 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
     <div class="tst-slider" id="tstSlider">
       <div class="tst-track" id="tstTrack"></div>
     </div>
-    <div class="tst-dots" id="tstDots"></div>
+    <div class="tst-controls">
+      <button type="button" class="tst-arrow" id="tstPrev" aria-label="Previous testimonial">←</button>
+      <div class="tst-dots" id="tstDots"></div>
+      <button type="button" class="tst-arrow" id="tstNext" aria-label="Next testimonial">→</button>
+    </div>
   </section>
 
   <!-- Companies / Partners Section -->
@@ -698,6 +717,10 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
         <div class="full">
           <label class="f-label">Products you're interested in</label>
           <div class="prod-boxes" id="prodBoxes"></div>
+        </div>
+        <div class="full port-type-field" id="portTypeField" hidden>
+          <label class="f-label" for="fPortType">Please select the policy you may like to port? <span style="color:var(--green)">(required)</span></label>
+          <input class="f" id="fPortType" name="portType" placeholder="Eg: Health, Motor">
         </div>
         <div class="full">
           <label class="f-label" for="fHealth">Pre-existing illness or condition <span style="font-weight:500;color:var(--ink-mute)">(optional)</span></label>
@@ -846,6 +869,8 @@ function el(tag, cls, text) {
   var descEl = document.getElementById('descList');
   var boxesEl = document.getElementById('prodBoxes');
   var portEl = document.getElementById('portPanel');
+  var portTypeEl = document.getElementById('portTypeField');
+  var portTypeInput = document.getElementById('fPortType');
   var labelEl = document.getElementById('ctaLabel');
   var waEl = document.getElementById('ctaWa');
   var mailEl = document.getElementById('ctaMail');
@@ -985,7 +1010,9 @@ function el(tag, cls, text) {
       cb.parentElement.classList.toggle('checked', cb.checked);
     });
 
-    portEl.hidden = sel.indexOf('Port my policy') < 0;
+    var porting = sel.indexOf('Port my policy') >= 0;
+    portEl.hidden = !porting;
+    portTypeEl.hidden = !porting;
     claimYesEl.classList.toggle('on', state.claim === 'yes');
     claimNoEl.classList.toggle('on', state.claim === 'no');
     claimDetailEl.hidden = state.claim !== 'yes';
@@ -1065,6 +1092,10 @@ function el(tag, cls, text) {
     }
 
     if (isPorting) {
+      if (!portTypeInput.value.trim()) {
+        showStatus('err', 'Please tell us which policy you\'d like to port (e.g. Health, Motor).');
+        return;
+      }
       if (!fileInput.files || fileInput.files.length === 0) {
         showStatus('err', "Please attach your existing policy document; it's required for porting.");
         return;
@@ -1110,6 +1141,7 @@ function el(tag, cls, text) {
       data.append('products', products);
       data.append('botcheck', hpEl && hpEl.checked ? 'true' : '');
       if (isPorting) {
+        data.append('portType', portTypeInput.value.trim());
         data.append('claim', state.claim === 'yes' ? 'Yes' : 'No');
         if (state.claim === 'yes') { data.append('claimDetails', claimInfoEl.value.trim()); }
       }
@@ -1211,6 +1243,8 @@ function el(tag, cls, text) {
   var track = document.getElementById('tstTrack');
   var slider = document.getElementById('tstSlider');
   var dotsWrap = document.getElementById('tstDots');
+  var prevArrow = document.getElementById('tstPrev');
+  var nextArrow = document.getElementById('tstNext');
   if (!track || !slider || !dotsWrap) return;
 
   // "Aman Kumbhani" -> "AK"
@@ -1297,6 +1331,17 @@ function el(tag, cls, text) {
     slideTo(index + 1);
   }
 
+  // Backward wrap: at the first slide, snap to the end clone (which looks
+  // identical to slide 1), then animate one step back so the last real slide
+  // slides in from the left — mirror image of the forward loop.
+  function prev() {
+    if (index <= 0) { jumpTo(count); }
+    slideTo(index - 1);
+  }
+
+  if (nextArrow) { nextArrow.addEventListener('click', function () { next(); restart(); }); }
+  if (prevArrow) { prevArrow.addEventListener('click', function () { prev(); restart(); }); }
+
   // When the move into the clone finishes, jump back to the real first slide
   // with no animation so the reset is invisible.
   track.addEventListener('transitionend', function (e) {
@@ -1345,11 +1390,11 @@ function el(tag, cls, text) {
     },
     {
       name: "LIC",
-      logo: "images/LIC_Logo.jpg"
+      logo: "images/LIC_Logo_clean.png"
     },
     {
       name: "Bajaj General Insurance Co. Ltd.",
-      logo: "images/Bajaj_Allianz_General_Insurance_Logo.png"
+      logo: "images/Bajaj_clean.png"
     },
     {
       name: "TATA AIA",

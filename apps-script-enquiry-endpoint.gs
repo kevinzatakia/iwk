@@ -47,6 +47,7 @@ function doPost(e) {
     var health   = clean_(p.health) || 'None mentioned';
     var claim    = clean_(p.claim);
     var claimDetails = clean_(p.claimDetails);
+    var portType = clean_(p.portType);
 
     var isPorting = products.indexOf('Port my policy') >= 0;
 
@@ -76,6 +77,7 @@ function doPost(e) {
       errors.push('missing policy document');
     }
     if (isPorting) {
+      if (!portType) { errors.push('policy to port'); }
       if (claim !== 'Yes' && claim !== 'No') { errors.push('claim'); }
       if (claim === 'Yes' && !claimDetails) { errors.push('claim details'); }
     }
@@ -96,6 +98,7 @@ function doPost(e) {
       'Product(s): ' + products,
       'Pre-existing condition: ' + health
     ];
+    if (portType) { lines.push('Policy to port: ' + portType); }
     if (claim) { lines.push('Claim on expiring policy: ' + claim); }
     if (claimDetails) { lines.push('Claim details (when / what for): ' + claimDetails); }
 
