@@ -595,6 +595,7 @@ function el(tag, cls, text) {
   ];
 
   var track = document.getElementById('partnersTrack');
+  var slider = document.getElementById('partnersSlider');
   var prevBtn = document.getElementById('partnerPrev');
   var nextBtn = document.getElementById('partnerNext');
 
@@ -643,43 +644,85 @@ function el(tag, cls, text) {
     track.appendChild(createPartnerCard(company));
   });
 
-  // Slider Logic
-  var currentIndex = 0;
+  // ---- Slider: same behaviour as the testimonials — auto-advance one card
+  // ---- every 5s in a seamless infinite loop, pausing on hover, with the
+  // ---- arrows for manual control. ----
+  var count = COMPANIES.length;
+  if (!count) return;
 
-  function getVisibleCards() {
-    if (window.innerWidth <= 600) return 2;
-    if (window.innerWidth <= 900) return 3;
-    return 5;
+  // Clone the whole set once and append it. Advancing past the last card then
+  // moves into an identical copy, and we snap back to the real start with no
+  // animation — invisible because the clone set matches the originals. A full
+  // clone (rather than one card) guarantees enough cards to fill the viewport
+  // at the wrap point for any number of visible cards (5 / 3 / 2 responsive).
+  for (var c = 0; c < count; c++) {
+    var cl = track.children[c].cloneNode(true);
+    cl.setAttribute('aria-hidden', 'true');
+    track.appendChild(cl);
   }
 
-  function updateSlider() {
-    var visibleCards = getVisibleCards();
-    var maxIndex = Math.max(0, COMPANIES.length - visibleCards);
-    if (currentIndex > maxIndex) currentIndex = maxIndex;
-    if (currentIndex < 0) currentIndex = 0;
+  var index = 0;
+  var timer = null;
+  var DELAY = 5000;
 
-    var cardWidth = track.children[0].getBoundingClientRect().width + 24; // Width + gap
-    track.style.transform = 'translateX(' + (-currentIndex * cardWidth) + 'px)';
+  // One card + the flex gap, in px. Recomputed each move so it stays correct
+  // after the responsive card width changes.
+  function step() {
+    var w = track.children[0].getBoundingClientRect().width;
+    var gap = parseFloat(getComputedStyle(track).columnGap) || 24;
+    return w + gap;
+  }
+  function apply() { track.style.transform = 'translateX(' + (-index * step()) + 'px)'; }
+
+  function slideTo(n) { index = n; apply(); }
+
+  // Snap with no animation — used to make the clone-to-start reset invisible.
+  function jumpTo(n) {
+    track.style.transition = 'none';
+    index = n;
+    apply();
+    track.offsetWidth; // force reflow so the next move animates again
+    track.style.transition = '';
   }
 
-  if (nextBtn) {
-    nextBtn.addEventListener('click', function () {
-      var visibleCards = getVisibleCards();
-      if (currentIndex < COMPANIES.length - visibleCards) {
-        currentIndex++;
-        updateSlider();
-      }
-    });
+  function next() {
+    if (index >= count) { jumpTo(0); }   // safety net if a reset was missed
+    slideTo(index + 1);
+  }
+  function prev() {
+    if (index <= 0) { jumpTo(count); }   // snap into the clone set, then step back
+    slideTo(index - 1);
   }
 
-  if (prevBtn) {
-    prevBtn.addEventListener('click', function () {
-      if (currentIndex > 0) {
-        currentIndex--;
-        updateSlider();
-      }
-    });
+  if (nextBtn) { nextBtn.addEventListener('click', function () { next(); restart(); }); }
+  if (prevBtn) { prevBtn.addEventListener('click', function () { prev(); restart(); }); }
+
+  // When the move into the cloned set finishes, snap back to the real start.
+  track.addEventListener('transitionend', function (e) {
+    if (e.target !== track || e.propertyName !== 'transform') { return; }
+    if (index >= count) { jumpTo(0); }
+  });
+
+  function start() {
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { return; }
+    timer = setInterval(next, DELAY);
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+  function restart() { stop(); start(); }
+
+  if (slider) {
+    slider.addEventListener('mouseenter', stop);
+    slider.addEventListener('mouseleave', start);
   }
 
-  window.addEventListener('resize', updateSlider);
+  // Keep the current card aligned when the layout (card width) changes.
+  window.addEventListener('resize', function () {
+    track.style.transition = 'none';
+    apply();
+    track.offsetWidth;
+    track.style.transition = '';
+  });
+
+  start();
 })();

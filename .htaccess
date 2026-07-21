@@ -1,0 +1,34 @@
+# Security headers + clean URLs for Apache (Hostinger).
+# Mirrors the settings in vercel.json so the site behaves the same on Hostinger.
+
+<IfModule mod_headers.c>
+  Header set Content-Security-Policy "default-src 'none'; base-uri 'none'; img-src 'self' data:; font-src data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+  Header set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "DENY"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+</IfModule>
+
+# Clean URLs: serve /page for /page.html, and redirect .html -> extensionless
+# (mirrors vercel.json "cleanUrls": true and "trailingSlash": false).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Redirect explicit .html requests to the extensionless URL (301).
+  RewriteCond %{THE_REQUEST} \s/+(.+?)\.html[\s?] [NC]
+  RewriteRule ^ /%1 [R=301,L]
+
+  # Internally serve the .html file for extensionless requests.
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME}\.html -f
+  RewriteRule ^(.+?)/?$ $1.html [L]
+</IfModule>
+
+# Ensure correct MIME types (usually set by server, included for safety).
+<IfModule mod_mime.c>
+  AddType text/css .css
+  AddType application/javascript .js
+  AddType image/svg+xml .svg
+  AddType image/webp .webp
+</IfModule>

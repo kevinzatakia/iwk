@@ -1,0 +1,60 @@
+# Auto-deploy to Hostinger over FTP on every push to `main`.
+#
+# This is the GitHub -> Hostinger pipeline for the Single Web Hosting plan
+# (which does NOT have Hostinger's native Git tool). Every push to `main`
+# uploads the changed site files into Hostinger's public_html via FTP.
+#
+# ── ONE-TIME SETUP (do this to turn the pipeline on) ─────────────────────────
+# 1. In Hostinger hPanel: Websites -> insureitwithkevin.in -> Files -> FTP
+#    Accounts. Note the FTP hostname, username, and (re)set the FTP password.
+# 2. In GitHub: repo Settings -> Secrets and variables -> Actions -> "New
+#    repository secret", and add these three secrets:
+#       FTP_SERVER    = the FTP hostname/IP from Hostinger (e.g. 12.34.56.78)
+#       FTP_USERNAME  = the FTP username from Hostinger
+#       FTP_PASSWORD  = the FTP password you set
+#    (Never commit these values into the repo — secrets only.)
+# 3. Confirm `server-dir` below matches where the domain serves from:
+#       - primary domain of the plan:  /public_html/
+#       - if it's an addon domain:      /domains/insureitwithkevin.in/public_html/
+# 4. Push any change to `main` (or use the "Run workflow" button) and watch the
+#    Actions tab. Done — future pushes auto-deploy.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}   # allows manual "Run workflow" from the Actions tab
+
+concurrency:
+  group: hostinger-deploy
+  cancel-in-progress: true
+
+jobs:
+  ftp-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps               # Hostinger supports FTPS; falls back guidance in README
+          server-dir: /public_html/
+          local-dir: ./
+          # Files that should NOT be uploaded to the web root:
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/node_modules/**
+            vercel.json
+            .vercelignore
+            apps-script-enquiry-endpoint.gs
+            **/*.md
+            **/.claude/**

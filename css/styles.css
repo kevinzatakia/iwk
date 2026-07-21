@@ -214,8 +214,28 @@ header {
 .band-mint::before { background: var(--band-mint); box-shadow: 0 0 0 100vmax var(--band-mint); }
 .band-deep::before { background: var(--green-deep); box-shadow: 0 0 0 100vmax var(--green-deep); }
 
+/* ---------- about ---------- */
+.about-head { text-align: center; margin-bottom: 26px; }
+.about-head p { font-size: 14.5px; color: var(--ink-soft); }
+.about-bio { max-width: 660px; margin: 0 auto; text-align: center; }
+.about-bio p { font-size: clamp(15px, 2vw, 16.5px); line-height: 1.72; color: var(--ink-soft); }
+.about-bio p + p { margin-top: 15px; }
+/* Stat row — a new component; numbers use the brand serif, labels are muted. */
+.stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px 46px; margin-top: 38px; }
+.stat { text-align: center; min-width: 118px; }
+.stat-num { font-family: var(--serif); font-weight: 700; font-size: clamp(28px, 5vw, 40px); line-height: 1; color: var(--green); }
+.stat-label { margin-top: 7px; font-size: 12.5px; letter-spacing: .02em; color: var(--ink-mute); }
+/* Credentials pills — same shape language as the hero .eyebrow. */
+.about-creds { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; }
+.about-cred {
+  display: inline-flex; align-items: center; font-size: 12px; font-weight: 800;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--green);
+  background: rgba(255,255,255,.55); border: 1px solid rgba(23,105,74,.22);
+  padding: 7px 14px; border-radius: 999px;
+}
+
 /* ---------- picker ---------- */
-#picker, #why, #testimonials, #faq, #contact { scroll-margin-top: 84px; }
+#about, #picker, #why, #testimonials, #faq, #contact { scroll-margin-top: 84px; }
 .picker-card {
   background: #fff; border: 1px solid var(--line); border-radius: 22px;
   padding: clamp(24px, 4vw, 36px); box-shadow: var(--shadow);
