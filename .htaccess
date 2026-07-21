@@ -8,6 +8,17 @@
   Header set X-Frame-Options "DENY"
   Header set Referrer-Policy "strict-origin-when-cross-origin"
   Header set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+
+  # Cache policy: HTML/CSS/JS must revalidate every visit so deploys show up
+  # immediately (ETag/Last-Modified make this cheap — mostly 304 Not Modified).
+  # Overrides Hostinger's default 7-day cache that made CSS changes appear stale.
+  <FilesMatch "\.(html|css|js)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  # Images change rarely and are safe to cache for a week.
+  <FilesMatch "\.(png|jpe?g|webp|svg|gif|ico)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
 </IfModule>
 
 # Clean URLs: serve /page for /page.html, and redirect .html -> extensionless
