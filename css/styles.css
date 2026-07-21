@@ -268,11 +268,6 @@ header {
   padding: clamp(30px, 5vw, 48px);
   position: relative; overflow: hidden;
 }
-.why::after {
-  content: "K|Z"; position: absolute; right: -10px; bottom: -46px;
-  font-family: var(--serif); font-weight: 700; font-size: 180px; line-height: 1;
-  color: rgba(255,255,255,.05); pointer-events: none;
-}
 .why h2 { font-family: var(--serif); font-weight: 700; font-size: clamp(22px, 3.6vw, 30px); margin-bottom: 22px; }
 .why h2 em { color: var(--gold-soft); }
 .why-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; position: relative; }
