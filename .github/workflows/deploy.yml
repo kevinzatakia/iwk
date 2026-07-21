@@ -13,9 +13,11 @@
 #       FTP_USERNAME  = the FTP username from Hostinger
 #       FTP_PASSWORD  = the FTP password you set
 #    (Never commit these values into the repo — secrets only.)
-# 3. Confirm `server-dir` below matches where the domain serves from:
-#       - primary domain of the plan:  /public_html/
-#       - if it's an addon domain:      /domains/insureitwithkevin.in/public_html/
+# 3. `server-dir` below is set to this site's ACTUAL document root. On this
+#    account the domain was moved off the Website Builder, so Hostinger serves
+#    it addon-style from /domains/insureitwithkevin.in/public_html/ (NOT the
+#    plan's primary /public_html/, which is a different, un-served folder).
+#    Verified via hPanel File Manager -> "Access all files of Single Web Hosting".
 # 4. Push any change to `main` (or use the "Run workflow" button) and watch the
 #    Actions tab. Done — future pushes auto-deploy.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -45,7 +47,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps               # Hostinger supports FTPS; falls back guidance in README
-          server-dir: /public_html/
+          server-dir: /domains/insureitwithkevin.in/public_html/
           local-dir: ./
           # Files that should NOT be uploaded to the web root:
           exclude: |
