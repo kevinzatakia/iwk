@@ -49,6 +49,9 @@ jobs:
           protocol: ftps               # Hostinger supports FTPS; falls back guidance in README
           server-dir: /domains/insureitwithkevin.in/public_html/
           local-dir: ./
+          timeout: 120000              # 120s (default 30s) — Hostinger's control socket can idle
+          # If a run fails with "Timeout (control socket)", just re-run it — it's usually
+          # transient. Persistent failures: try protocol: ftp instead of ftps.
           # Files that should NOT be uploaded to the web root:
           exclude: |
             **/.git*
