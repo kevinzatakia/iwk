@@ -47,9 +47,19 @@ function el(tag, cls, text) {
   ];
 
   var state = { selected: [], unsure: false };
-  // Health is exclusive: it has its own dedicated enquiry page (compare-plans),
-  // so it can't be combined with other policies.
-  var HEALTH = 'Health';
+  // Policies with their own dedicated multi-step enquiry page. Each is exclusive:
+  // selecting one clears and locks every other option (unclick it to go back).
+  var EXCLUSIVE_PAGES = {
+    'Health': 'health.html',
+    'Travel': 'travel.html'
+  };
+  // Returns the exclusive policy currently selected, or null.
+  function exclusiveSelected() {
+    for (var i = 0; i < state.selected.length; i++) {
+      if (EXCLUSIVE_PAGES[state.selected[i]]) { return state.selected[i]; }
+    }
+    return null;
+  }
 
   var chipsEl = document.getElementById('chips');
   var hintEl = document.getElementById('pickerHint');
@@ -117,29 +127,28 @@ function el(tag, cls, text) {
   });
 
   function toggleProduct(p) {
-    var healthOn = state.selected.indexOf(HEALTH) >= 0;
-    if (p === HEALTH) {
-      // Selecting Health clears everything else; clicking it again clears it.
+    var active = exclusiveSelected();
+    if (EXCLUSIVE_PAGES[p]) {
+      // Exclusive policy: select it alone, or clear if it's already selected.
       state.unsure = false;
-      state.selected = healthOn ? [] : [HEALTH];
+      state.selected = (active === p) ? [] : [p];
       render();
       return;
     }
-    // While Health is selected, other policies are locked — unclick Health first.
-    if (healthOn) { return; }
+    // While an exclusive policy is selected, other policies are locked.
+    if (active) { return; }
     state.unsure = false;
     var i = state.selected.indexOf(p);
     if (i >= 0) state.selected.splice(i, 1); else state.selected.push(p);
     render();
   }
 
-  // Builds the destination for the "Send enquiry" button. Health has its own
-  // dedicated page; everything else goes to the standalone enquiry form, with the
-  // chosen policies (or the "not sure yet" flag) carried in the query string.
+  // Builds the destination for the "Send enquiry" button. Health and Travel each
+  // have their own dedicated page; everything else goes to the standalone enquiry
+  // form, with the chosen policies (or the "not sure yet" flag) in the query string.
   function enquiryLink() {
-    if (state.selected.length === 1 && state.selected[0] === HEALTH) {
-      return 'health.html';
-    }
+    var active = exclusiveSelected();
+    if (active && state.selected.length === 1) { return EXCLUSIVE_PAGES[active]; }
     if (state.unsure) { return 'enquiry.html?unsure=1'; }
     if (state.selected.length) {
       return 'enquiry.html?products=' + encodeURIComponent(state.selected.join(','));
@@ -170,21 +179,21 @@ function el(tag, cls, text) {
 
   function render() {
     var sel = state.selected;
-    var healthOn = sel.indexOf(HEALTH) >= 0;
+    var active = exclusiveSelected();
 
     chipsEl.querySelectorAll('.chip[data-product]').forEach(function (b) {
-      var isHealth = b.dataset.product === HEALTH;
-      b.classList.toggle('on', sel.indexOf(b.dataset.product) >= 0);
-      // Lock every other chip while Health is selected.
-      b.disabled = healthOn && !isHealth;
+      var p = b.dataset.product;
+      b.classList.toggle('on', sel.indexOf(p) >= 0);
+      // Lock every other chip while an exclusive policy is selected.
+      b.disabled = !!active && p !== active;
     });
     unsureBtn.classList.toggle('on', state.unsure);
-    unsureBtn.disabled = healthOn;
+    unsureBtn.disabled = !!active;
 
     if (state.unsure) {
       hintEl.innerHTML = "No problem, just reach out and we'll work it out together.";
-    } else if (healthOn) {
-      hintEl.innerHTML = 'Selected: <b>Health</b> — other options are locked while Health is selected.';
+    } else if (active) {
+      hintEl.innerHTML = 'Selected: <b>' + active + '</b> — other options are locked while ' + active + ' is selected.';
     } else if (sel.length) {
       hintEl.innerHTML = 'Selected: <b>' + sel.join(', ') + '</b>';
     } else {

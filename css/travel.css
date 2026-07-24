@@ -1,0 +1,163 @@
+/* ================================================================
+   Travel insurance progressive enquiry — wizard component.
+   Self-contained; reuses the site design tokens from css/styles.css.
+   Step-by-step questions with completed/greyed states + transitions.
+   ================================================================ */
+
+/* ---------- page head ---------- */
+.tv-head { text-align: center; max-width: 640px; margin: 0 auto 30px; }
+.tv-head h1 {
+  font-family: var(--serif); font-weight: 700;
+  font-size: clamp(28px, 5vw, 44px); line-height: 1.12; letter-spacing: -0.015em; margin-top: 14px;
+}
+.tv-head h1 em { font-style: italic; color: var(--green); }
+.tv-head p { margin-top: 16px; font-size: clamp(15px, 2vw, 16.5px); color: var(--ink-soft); }
+
+/* ---------- wizard shell ---------- */
+.tv-wizard { max-width: 550px; margin: 0 auto; }
+
+/* A shared state utility for progressive disclosure. */
+.tv-wizard .hidden { display: none !important; }
+
+/* Each step is a card. Reveal animates opacity + translateY (see .tv-enter). */
+.tv-step, .tv-done {
+  background: #fff; border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: var(--shadow); padding: clamp(20px, 4vw, 28px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+.tv-step + .tv-step, .tv-done { margin-top: 16px; }
+
+/* Freshly revealed elements start slightly down + transparent, then settle. */
+.tv-enter { opacity: 0; transform: translateY(14px); }
+
+/* Completed steps collapse to a compact, greyed summary row. */
+.completed-step { padding: 14px 18px; background: var(--ivory); box-shadow: none; opacity: .85; }
+.completed-step .tv-step-active { display: none; }
+.tv-step-summary { display: none; }
+.completed-step .tv-step-summary { display: flex; align-items: center; gap: 12px; }
+.tv-check {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--green);
+  color: #fff; display: grid; place-items: center; font-size: 14px; font-weight: 800;
+}
+.tv-summary-body { flex: 1; min-width: 0; }
+.tv-summary-label { font-size: 11.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-mute); }
+.tv-summary-value { font-size: 14.5px; font-weight: 600; color: var(--ink); margin-top: 2px; word-break: break-word; }
+.tv-edit {
+  flex-shrink: 0; background: none; border: none; cursor: pointer; padding: 4px 6px;
+  font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--green);
+}
+.tv-edit:hover { text-decoration: underline; }
+
+/* ---------- question label ---------- */
+.tv-q { display: block; font-family: var(--serif); font-weight: 700; font-size: 19px; color: var(--ink); margin-bottom: 16px; }
+.tv-error { margin-top: 12px; font-size: 13px; font-weight: 600; color: #b42318; }
+.tv-error[hidden] { display: none; }
+.tv-next { width: 100%; margin-top: 20px; }
+.tv-note { font-size: 14px; color: var(--ink-soft); }
+
+/* ---------- step 1: contact details + age ---------- */
+.tv-fields { display: grid; gap: 14px; }
+.tv-field .f-label { display: block; margin-bottom: 6px; }
+
+/* ---------- member tiles (step 2) ---------- */
+.tv-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tv-tile {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 14px 16px; border-radius: 14px; border: 1.5px solid var(--line);
+  background: var(--ivory); font-weight: 700; font-size: 14.5px; color: var(--ink-soft);
+  transition: all .15s ease;
+}
+.tv-tile:hover { border-color: var(--green); }
+.tv-tile input { accent-color: var(--green); width: 18px; height: 18px; cursor: pointer; }
+.tv-tile.on { background: var(--green-tint); border-color: var(--green); color: var(--green-deep); }
+
+/* "How many?" count rows, revealed for Son / Daughter. */
+.tv-counts { margin-top: 14px; display: grid; gap: 10px; }
+.tv-count-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border-radius: 12px; border: 1.5px dashed var(--green);
+  background: var(--green-tint);
+}
+.tv-count-row label { font-size: 14px; font-weight: 600; color: var(--green-deep); }
+.tv-count-row input { width: 72px; text-align: center; font-weight: 700; }
+
+/* ---------- dynamic ages (step 3) ---------- */
+.tv-ages { display: grid; gap: 12px; }
+.tv-age-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tv-age-field label { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.tv-age-field input { width: 96px; text-align: center; font-weight: 700; }
+
+/* ---------- travel dates (step 4) ---------- */
+.tv-dates { display: grid; gap: 14px; }
+.tv-date-field { display: flex; flex-direction: column; gap: 6px; }
+.tv-date-field label { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.tv-date-field input { width: 100%; }
+
+/* ---------- country select (step 5) ---------- */
+/* The site's .f rule only styles inputs/textareas, so the native <select> is
+   styled from scratch here: matching surface + a custom green chevron. */
+.tv-select {
+  width: 100%;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  padding: 15px 46px 15px 16px;
+  font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--ink);
+  background-color: var(--ivory);
+  border: 1.5px solid var(--line); border-radius: 12px;
+  cursor: pointer; transition: border-color .15s, box-shadow .15s, background-color .15s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2317694A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+}
+.tv-select:hover { border-color: var(--green); }
+.tv-select:focus-visible {
+  outline: none; border-color: var(--green); background-color: #fff;
+  box-shadow: 0 0 0 4px rgba(23, 105, 74, .12);
+}
+.tv-select option { color: var(--ink); font-weight: 600; }
+
+/* ---------- sum insured grid (step 6) ---------- */
+.tv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.tv-si {
+  padding: 16px 10px; border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--ivory); color: var(--ink); cursor: pointer; transition: all .15s ease; text-align: center;
+}
+.tv-si:hover { border-color: var(--green); transform: translateY(-2px); }
+.tv-si.on { background: var(--green); border-color: var(--green); color: #fff; }
+.tv-si.on .tv-si-amt { color: rgba(255, 255, 255, .85); }
+.tv-si-label { font-family: var(--serif); font-weight: 700; font-size: 18px; display: block; }
+.tv-si-amt { font-size: 12.5px; color: var(--ink-mute); margin-top: 2px; display: block; }
+
+/* ---------- conditions pills (step 7) ---------- */
+.tv-conditions { display: flex; flex-wrap: wrap; gap: 10px; }
+.tv-cond {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer; padding: 10px 16px;
+  border-radius: 999px; border: 1.5px solid var(--line); background: var(--ivory);
+  font-size: 13.5px; font-weight: 600; color: var(--ink-soft); transition: all .15s ease;
+}
+.tv-cond:hover { border-color: var(--green); }
+.tv-cond input { accent-color: var(--green); width: 15px; height: 15px; cursor: pointer; }
+.tv-cond.on { background: var(--green-tint); border-color: var(--green); color: var(--green-deep); }
+
+/* ---------- done / success ---------- */
+.tv-done { text-align: center; border-color: var(--green); }
+.tv-done-icon {
+  width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 30px; font-weight: 800; background: var(--green); color: #fff;
+}
+.tv-done h3 { font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--green-deep); }
+.tv-done > p { margin-top: 8px; font-size: 15px; color: var(--ink-soft); }
+.tv-recap {
+  text-align: left; margin: 20px 0; padding: 16px; border-radius: 14px;
+  background: var(--ivory); border: 1px solid var(--line); display: grid; gap: 8px;
+}
+.tv-recap-row { display: flex; justify-content: space-between; gap: 14px; font-size: 13.5px; }
+.tv-recap-row dt { color: var(--ink-mute); font-weight: 600; }
+.tv-recap-row dd { margin: 0; color: var(--ink); font-weight: 700; text-align: right; }
+.tv-done .btn { width: 100%; }
+
+/* ---------- start-over control ---------- */
+.tv-restart {
+  display: block; margin: 18px auto 0; background: none; border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 13.5px; font-weight: 700; color: var(--ink-mute);
+}
+.tv-restart:hover { color: var(--green); }
