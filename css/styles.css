@@ -85,6 +85,8 @@ header {
 .nav-links a { text-decoration: none; font-size: 13.5px; font-weight: 700; }
 .nav-ig { display: inline-flex; align-items: center; color: var(--ink-soft); padding: 9px 8px; border-radius: 10px; transition: color .15s; }
 .nav-ig:hover { color: var(--green); }
+.nav-link { color: var(--ink-soft); padding: 9px 10px; border-radius: 10px; transition: color .15s; white-space: nowrap; }
+.nav-link:hover { color: var(--green); }
 .nav-cta {
   color: #fff; background: var(--green); padding: 10px 18px; border-radius: 999px;
   box-shadow: var(--shadow); transition: transform .15s, background .15s;
@@ -220,11 +222,17 @@ header {
 .about-bio { max-width: 660px; margin: 0 auto; text-align: center; }
 .about-bio p { font-size: clamp(15px, 2vw, 16.5px); line-height: 1.72; color: var(--ink-soft); }
 .about-bio p + p { margin-top: 15px; }
-/* Stat row — a new component; numbers use the brand serif, labels are muted. */
-.stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px 46px; margin-top: 38px; }
+/* Stat row — a new component; numbers use the brand serif, labels are muted.
+   The "7+ years" stat is featured larger on top, with the other three below. */
+.stats { display: flex; flex-direction: column; align-items: center; gap: 26px; margin-top: 38px; }
 .stat { text-align: center; min-width: 118px; }
 .stat-num { font-family: var(--serif); font-weight: 700; font-size: clamp(28px, 5vw, 40px); line-height: 1; color: var(--green); }
 .stat-label { margin-top: 7px; font-size: 12.5px; letter-spacing: .02em; color: var(--ink-mute); }
+/* Featured stat — noticeably larger than the supporting three. */
+.stat-feature .stat-num { font-size: clamp(52px, 11vw, 84px); }
+.stat-feature .stat-label { margin-top: 10px; font-size: 14px; }
+/* The supporting three sit in a centered, wrapping row below the feature. */
+.stats-rest { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px 46px; }
 /* Credentials pills — same shape language as the hero .eyebrow. */
 .about-creds { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; }
 .about-cred {
@@ -251,6 +259,9 @@ header {
 }
 .chip:hover { border-color: var(--green); color: var(--green-deep); transform: translateY(-1px); }
 .chip.on { background: var(--green); border-color: var(--green); color: #fff; box-shadow: 0 6px 16px -6px rgba(23,105,74,.45); }
+/* Locked while Health (an exclusive option) is selected. */
+.chip:disabled { opacity: .38; cursor: not-allowed; }
+.chip:disabled:hover { border-color: var(--line); color: var(--ink-soft); transform: none; }
 .chip-unsure { border-style: dashed; background: transparent; }
 .chip-unsure.on { background: var(--gold); border-color: var(--gold); border-style: solid; color: var(--green-dark); box-shadow: 0 6px 16px -6px rgba(201,162,39,.5); }
 .desc-list { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; padding-top: 18px; border-top: 1px dashed var(--line); }
@@ -434,9 +445,35 @@ header {
 }
 
 /* ---------- form ---------- */
+/* ---------- Enquiry page ---------- */
+/* Heading block above the form on the standalone enquiry page. Mirrors the hero
+   type scale so the page reads as part of the same site. */
+.enquiry-head { text-align: center; max-width: 640px; margin: 0 auto 28px; }
+.enquiry-head h1 {
+  font-family: var(--serif); font-weight: 700;
+  font-size: clamp(30px, 5.4vw, 48px); line-height: 1.14; letter-spacing: -0.015em;
+  margin-bottom: 12px;
+}
+.enquiry-head h1 em { font-style: italic; color: var(--green); }
+.enquiry-head > p { font-size: 15px; color: var(--ink-soft); }
+.enquiry-head .eyebrow { margin-bottom: 18px; }
+.enquiry-back {
+  display: inline-block; margin-top: 4px; font-weight: 600; color: var(--green);
+  text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .15s;
+}
+.enquiry-back:hover { border-bottom-color: var(--green); }
+/* The "You selected: …" recap of the policies carried over from the picker. */
+.enquiry-summary {
+  padding: 12px 16px; border-radius: 12px; margin-bottom: 4px;
+  border: 1.5px solid var(--green); background: var(--green-tint);
+  font-size: 14px; color: var(--ink-soft);
+}
+.enquiry-summary b { color: var(--green-deep); }
+
 .form-card {
   background: #fff; border: 1px solid var(--line); border-radius: 22px;
   padding: clamp(24px, 4vw, 40px); box-shadow: var(--shadow);
+  max-width: 640px; margin: 0 auto;
 }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
 .field-grid .full { grid-column: 1 / -1; }

@@ -1,0 +1,159 @@
+/* ================================================================
+   Yuva Bharat Progressive Health Scheme — wizard component.
+   Reuses the site design system (css/styles.css). This file adds the
+   progressive-disclosure wizard: age gate, promo card, and the
+   step-by-step questions with completed/greyed states + transitions.
+   ================================================================ */
+
+/* ---------- page head ---------- */
+.yb-head { text-align: center; max-width: 640px; margin: 0 auto 30px; }
+.yb-head h1 {
+  font-family: var(--serif); font-weight: 700;
+  font-size: clamp(28px, 5vw, 44px); line-height: 1.12; letter-spacing: -0.015em; margin-top: 14px;
+}
+.yb-head h1 em { font-style: italic; color: var(--green); }
+.yb-head p { margin-top: 16px; font-size: clamp(15px, 2vw, 16.5px); color: var(--ink-soft); }
+
+/* ---------- wizard shell ---------- */
+.yb-wizard { max-width: 500px; margin: 0 auto; }
+
+/* A shared state utility for progressive disclosure. */
+.yb-wizard .hidden { display: none !important; }
+
+/* Each step is a card. Reveal animates opacity + translateY (see .yb-enter). */
+.yb-step, .yb-done {
+  background: #fff; border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: var(--shadow); padding: clamp(20px, 4vw, 28px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+.yb-step + .yb-step, .yb-done { margin-top: 16px; }
+
+/* Freshly revealed elements start slightly down + transparent, then settle. */
+.yb-enter { opacity: 0; transform: translateY(14px); }
+
+/* Completed steps collapse to a compact, greyed summary row. */
+.completed-step { padding: 14px 18px; background: var(--ivory); box-shadow: none; opacity: .85; }
+.completed-step .yb-step-active { display: none; }
+.yb-step-summary { display: none; }
+.completed-step .yb-step-summary { display: flex; align-items: center; gap: 12px; }
+.yb-check {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--green);
+  color: #fff; display: grid; place-items: center; font-size: 14px; font-weight: 800;
+}
+.yb-summary-body { flex: 1; min-width: 0; }
+.yb-summary-label { font-size: 11.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-mute); }
+.yb-summary-value { font-size: 14.5px; font-weight: 600; color: var(--ink); margin-top: 2px; word-break: break-word; }
+.yb-edit {
+  flex-shrink: 0; background: none; border: none; cursor: pointer; padding: 4px 6px;
+  font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--green);
+}
+.yb-edit:hover { text-decoration: underline; }
+
+/* ---------- question label ---------- */
+.yb-q { display: block; font-family: var(--serif); font-weight: 700; font-size: 19px; color: var(--ink); margin-bottom: 16px; }
+.yb-error { margin-top: 12px; font-size: 13px; font-weight: 600; color: #b42318; }
+.yb-error[hidden] { display: none; }
+.yb-next { width: 100%; margin-top: 20px; }
+
+/* ---------- step 1: contact details + age ---------- */
+.yb-fields { display: grid; gap: 14px; }
+.yb-field .f-label { display: block; margin-bottom: 6px; }
+
+/* ---------- member tiles (step 2) ---------- */
+.yb-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.yb-tile {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 14px 16px; border-radius: 14px; border: 1.5px solid var(--line);
+  background: var(--ivory); font-weight: 700; font-size: 14.5px; color: var(--ink-soft);
+  transition: all .15s ease;
+}
+.yb-tile:hover { border-color: var(--green); }
+.yb-tile input { accent-color: var(--green); width: 18px; height: 18px; cursor: pointer; }
+.yb-tile.on { background: var(--green-tint); border-color: var(--green); color: var(--green-deep); }
+
+/* "How many?" count rows, revealed for Son / Daughter. */
+.yb-counts { margin-top: 14px; display: grid; gap: 10px; }
+.yb-count-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border-radius: 12px; border: 1.5px dashed var(--green);
+  background: var(--green-tint);
+}
+.yb-count-row label { font-size: 14px; font-weight: 600; color: var(--green-deep); }
+.yb-count-row input { width: 72px; text-align: center; font-weight: 700; }
+
+/* ---------- dynamic ages (step 3) ---------- */
+.yb-ages { display: grid; gap: 12px; }
+.yb-age-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.yb-age-field label { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.yb-age-field input { width: 96px; text-align: center; font-weight: 700; }
+
+/* ---------- zone pills (step 4) ---------- */
+.yb-pills { display: grid; gap: 12px; }
+.yb-pill {
+  display: block; cursor: pointer; padding: 16px 18px; border-radius: 14px;
+  border: 1.5px solid var(--line); background: var(--ivory); transition: all .15s ease;
+}
+.yb-pill:hover { border-color: var(--green); }
+.yb-pill input { position: absolute; opacity: 0; pointer-events: none; }
+.yb-pill-title { font-weight: 800; font-size: 15px; color: var(--ink); }
+.yb-pill-sub { display: block; margin-top: 4px; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+.yb-pill.on { border-color: var(--green); background: var(--green-tint); }
+.yb-pill.on .yb-pill-title { color: var(--green-deep); }
+
+/* ---------- intent cards (step 5) ---------- */
+.yb-cards { display: grid; gap: 12px; }
+.yb-card {
+  display: flex; align-items: center; gap: 14px; cursor: pointer; padding: 18px;
+  border-radius: 14px; border: 1.5px solid var(--line); background: var(--ivory); transition: all .15s ease;
+}
+.yb-card:hover { border-color: var(--green); }
+.yb-card input { position: absolute; opacity: 0; pointer-events: none; }
+.yb-card-ic { font-size: 24px; flex-shrink: 0; }
+.yb-card-title { font-weight: 800; font-size: 15.5px; color: var(--ink); }
+.yb-card.on { border-color: var(--green); background: var(--green-tint); }
+.yb-card.on .yb-card-title { color: var(--green-deep); }
+
+/* ---------- sum insured grid (step 6) ---------- */
+.yb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.yb-si {
+  padding: 16px 8px; border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--ivory); color: var(--ink); font-family: var(--serif); font-weight: 700;
+  font-size: 18px; cursor: pointer; transition: all .15s ease;
+}
+.yb-si:hover { border-color: var(--green); transform: translateY(-2px); }
+.yb-si.on { background: var(--green); border-color: var(--green); color: #fff; }
+
+/* ---------- conditions pills (step 7) ---------- */
+.yb-conditions { display: flex; flex-wrap: wrap; gap: 10px; }
+.yb-cond {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer; padding: 10px 16px;
+  border-radius: 999px; border: 1.5px solid var(--line); background: var(--ivory);
+  font-size: 13.5px; font-weight: 600; color: var(--ink-soft); transition: all .15s ease;
+}
+.yb-cond:hover { border-color: var(--green); }
+.yb-cond input { accent-color: var(--green); width: 15px; height: 15px; cursor: pointer; }
+.yb-cond.on { background: var(--green-tint); border-color: var(--green); color: var(--green-deep); }
+
+/* ---------- done / success ---------- */
+.yb-done { text-align: center; border-color: var(--green); }
+.yb-done-icon {
+  width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 30px; font-weight: 800; background: var(--green); color: #fff;
+}
+.yb-done h3 { font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--green-deep); }
+.yb-done > p { margin-top: 8px; font-size: 15px; color: var(--ink-soft); }
+.yb-recap {
+  text-align: left; margin: 20px 0; padding: 16px; border-radius: 14px;
+  background: var(--ivory); border: 1px solid var(--line); display: grid; gap: 8px;
+}
+.yb-recap-row { display: flex; justify-content: space-between; gap: 14px; font-size: 13.5px; }
+.yb-recap-row dt { color: var(--ink-mute); font-weight: 600; }
+.yb-recap-row dd { margin: 0; color: var(--ink); font-weight: 700; text-align: right; }
+.yb-done .btn { width: 100%; }
+
+/* ---------- start-over control ---------- */
+.yb-restart {
+  display: block; margin: 18px auto 0; background: none; border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 13.5px; font-weight: 700; color: var(--ink-mute);
+}
+.yb-restart:hover { color: var(--green); }
