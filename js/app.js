@@ -51,7 +51,8 @@ function el(tag, cls, text) {
   // selecting one clears and locks every other option (unclick it to go back).
   var EXCLUSIVE_PAGES = {
     'Health': 'health.html',
-    'Travel': 'travel.html'
+    'Travel': 'travel.html',
+    'Fire': 'fire.html'
   };
   // Returns the exclusive policy currently selected, or null.
   function exclusiveSelected() {

@@ -58,7 +58,9 @@ function doPost(e) {
     if (!name) { errors.push('name'); }
     if (!EMAIL_RE.test(email)) { errors.push('email'); }
     if (!/^[0-9]{10}$/.test(mobile)) { errors.push('mobile'); }
-    if (!/^[0-9]{1,3}$/.test(age) || +age < 1 || +age > 120) { errors.push('age'); }
+    // Age is optional (e.g. property/fire enquiries don't collect it); only
+    // validate it when one is supplied.
+    if (age && (!/^[0-9]{1,3}$/.test(age) || +age < 1 || +age > 120)) { errors.push('age'); }
     if (!products || products === 'Not specified') { errors.push('products'); }
 
     // File: validate whenever one is present, and require one when porting.
@@ -93,11 +95,11 @@ function doPost(e) {
       '',
       'Name: ' + name,
       'Email: ' + email,
-      'Mobile: ' + mobile,
-      'Age: ' + age,
-      'Product(s): ' + products,
-      'Pre-existing condition: ' + health
+      'Mobile: ' + mobile
     ];
+    if (age) { lines.push('Age: ' + age); }
+    lines.push('Product(s): ' + products);
+    lines.push('Pre-existing condition: ' + health);
     if (portType) { lines.push('Policy to port: ' + portType); }
     if (claim) { lines.push('Claim on expiring policy: ' + claim); }
     if (claimDetails) { lines.push('Claim details (when / what for): ' + claimDetails); }
