@@ -52,7 +52,8 @@ function el(tag, cls, text) {
   var EXCLUSIVE_PAGES = {
     'Health': 'health.html',
     'Travel': 'travel.html',
-    'Fire': 'fire.html'
+    'Fire': 'fire.html',
+    'Shop': 'shop.html'
   };
   // Returns the exclusive policy currently selected, or null.
   function exclusiveSelected() {
