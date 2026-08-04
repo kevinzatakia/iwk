@@ -52,6 +52,7 @@ function el(tag, cls, text) {
   var EXCLUSIVE_PAGES = {
     'Health': 'health.html',
     'Travel': 'travel.html',
+    'Motor': 'motor.html',
     'Fire': 'fire.html',
     'Shop': 'shop.html'
   };
