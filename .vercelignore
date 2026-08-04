@@ -1,3 +1,15 @@
 # Keep server-side source and local tooling out of the public deployment
 apps-script-enquiry-endpoint.gs
 .claude
+# Local tooling / editor config — not part of the site
+.claude/
+*.log
+.DS_Store
+Thumbs.db
+/marketing/
+TRAVEL_SCHEME_COMPONENT.txt
+YUVA_BHARAT_SCHEME_COMPONENT.txt
+SHOP_SCHEME_COMPONENT.txt
+FIRE_SCHEME_COMPONENT.txt
+InsureItWithKevin_PWA_PRD.txt
+MOTOR_SCHEME_COMPONENT.txt
