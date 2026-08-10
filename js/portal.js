@@ -203,11 +203,31 @@
   // ============================================================
   function docRow(doc) {
     var li = el('li');
+    var main = el('div', 'portal-doc-main');
     var a = el('a', null, doc.fileName || 'Document');
     a.href = doc.fileURL || '#'; a.target = '_blank'; a.rel = 'noopener';
-    li.appendChild(a);
-    if (doc.timestamp) { li.appendChild(el('span', 'portal-doc-meta', new Date(doc.timestamp).toLocaleDateString())); }
+    main.appendChild(a);
+    if (doc.timestamp) { main.appendChild(el('span', 'portal-doc-meta', new Date(doc.timestamp).toLocaleDateString())); }
+    li.appendChild(main);
+
+    var del = el('button', 'portal-doc-del', 'Delete');
+    del.type = 'button';
+    del.setAttribute('aria-label', 'Delete ' + (doc.fileName || 'document'));
+    del.addEventListener('click', function () { deleteDoc(doc, del); });
+    li.appendChild(del);
     return li;
+  }
+
+  function deleteDoc(doc, btn) {
+    if (!doc || !doc.fileURL) { return; }
+    if (!window.confirm('Delete "' + (doc.fileName || 'this document') + '"? It will be removed from your portal.')) { return; }
+    btn.disabled = true; btn.textContent = 'Deleting…';
+    gasGet({ action: 'deleteDocument', email: getEmail(), fileURL: doc.fileURL })
+      .then(function (data) {
+        if (data && data.status === 'success') { status('ok', 'Deleted.'); loadClient(); }
+        else { status('err', (data && data.message) || 'Could not delete.'); btn.disabled = false; btn.textContent = 'Delete'; }
+      })
+      .catch(function (e2) { status('err', e2.message || 'Could not delete.'); btn.disabled = false; btn.textContent = 'Delete'; });
   }
 
   function loadClient() {
@@ -319,7 +339,24 @@
     b.addEventListener('click', function () { showView(b.getAttribute('data-go')); });
   });
 
-  $('navLogout').addEventListener('click', function () { clearSession(); showView('home-view'); });
+  // Slide-in drawer (Log out + Main site).
+  var drawer = $('portalDrawer'), overlay = $('drawerOverlay'), menuToggle = $('menuToggle');
+  function openDrawer() {
+    drawer.classList.add('is-open'); overlay.classList.add('is-visible');
+    menuToggle.setAttribute('aria-expanded', 'true'); drawer.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDrawer() {
+    drawer.classList.remove('is-open'); overlay.classList.remove('is-visible');
+    menuToggle.setAttribute('aria-expanded', 'false'); drawer.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+  menuToggle.addEventListener('click', openDrawer);
+  overlay.addEventListener('click', closeDrawer);
+  $('menuClose').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDrawer(); } });
+
+  $('navLogout').addEventListener('click', function () { closeDrawer(); clearSession(); showView('home-view'); });
   $('navAbout').addEventListener('click', function () { $('modalAbout').hidden = false; });
   $('navPolicies').addEventListener('click', function () { $('modalPolicies').hidden = false; });
   document.querySelectorAll('[data-close-modal]').forEach(function (b) {

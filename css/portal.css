@@ -12,7 +12,6 @@ body.portal { min-height: 100vh; }
   border-bottom: 1px solid var(--line);
 }
 .portal-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; }
-/* .portal-brand img { display: inline-flex; align-items: baseline; gap: 10px; text-decoration: none; } */
 .portal-brand img { height: 46px; width: auto; display: block; }
 .portal-tag {
   font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--green);
@@ -34,6 +33,37 @@ body.portal { min-height: 100vh; }
 }
 .portal-install:hover { background: #d8e7da; border-color: var(--green); }
 .portal-install[hidden] { display: none; }
+
+/* hamburger button */
+.portal-hamburger {
+  display: inline-flex; flex-direction: column; justify-content: center; gap: 4px;
+  width: 42px; height: 38px; padding: 0 9px; cursor: pointer;
+  background: none; border: 1px solid var(--line); border-radius: 10px; transition: background .15s, border-color .15s;
+}
+.portal-hamburger:hover { background: var(--green-tint); border-color: rgba(23, 105, 74, .28); }
+.portal-hamburger span { display: block; height: 2.5px; border-radius: 2px; background: var(--ink); transition: background .15s; }
+.portal-hamburger:hover span { background: var(--green-deep); }
+
+/* slide-in drawer + overlay */
+.portal-drawer-overlay {
+  position: fixed; inset: 0; z-index: 40; background: rgba(13, 59, 42, .45);
+  opacity: 0; visibility: hidden; transition: opacity .25s ease, visibility .25s ease;
+}
+.portal-drawer-overlay.is-visible { opacity: 1; visibility: visible; }
+.portal-drawer {
+  position: fixed; top: 0; right: 0; z-index: 50; height: 100vh; width: min(300px, 82vw);
+  background: rgba(247, 248, 242, .98); backdrop-filter: saturate(140%) blur(8px);
+  border-left: 1px solid var(--line); box-shadow: -10px 0 34px rgba(13, 59, 42, .14);
+  transform: translateX(100%); transition: transform .28s cubic-bezier(.4, 0, .2, 1);
+  display: flex; flex-direction: column; padding: 16px;
+}
+.portal-drawer.is-open { transform: translateX(0); }
+.portal-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 14px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.portal-drawer-title { font-family: var(--serif); font-weight: 700; font-size: 17px; color: var(--green-deep); }
+.portal-drawer-close { background: none; border: none; font-size: 28px; line-height: 1; cursor: pointer; color: var(--ink-mute); padding: 0 4px; }
+.portal-drawer-close:hover { color: var(--ink); }
+.portal-drawer-links { display: flex; flex-direction: column; gap: 4px; }
+.portal-drawer-links .portal-navbtn { display: block; width: 100%; text-align: left; font-size: 15px; padding: 13px 12px; border-radius: 10px; }
 
 /* ---------- main / views ---------- */
 .portal-main { padding: clamp(24px, 5vw, 48px) 0 60px; }
@@ -94,9 +124,17 @@ body.portal { min-height: 100vh; }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--ivory); font-size: 14px;
 }
+.portal-doc-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .portal-doclist a { color: var(--green-deep); font-weight: 700; text-decoration: none; word-break: break-word; }
 .portal-doclist a:hover { text-decoration: underline; }
-.portal-doc-meta { font-size: 11.5px; color: var(--ink-mute); white-space: nowrap; }
+.portal-doc-meta { font-size: 11.5px; color: var(--ink-mute); }
+.portal-doc-del {
+  flex: none; font-family: var(--sans); font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  color: #b42318; background: #fbe9e7; border: 1px solid #f5c6bf; border-radius: 9px; padding: 6px 11px;
+  transition: background .15s;
+}
+.portal-doc-del:hover { background: #f6d2cc; }
+.portal-doc-del:disabled { opacity: .55; cursor: default; }
 .portal-empty { color: var(--ink-mute); font-style: italic; justify-content: center !important; }
 .portal-user-name { font-weight: 700; color: var(--ink); }
 .portal-user-email { font-size: 12.5px; color: var(--ink-mute); }
