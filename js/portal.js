@@ -39,19 +39,69 @@
   }
   function clearSession() { localStorage.removeItem('portalEmail'); localStorage.removeItem('portalName'); }
 
-  // ---- GAS request ----
-  // Posts JSON as text/plain so it's a "simple" CORS request (no preflight —
-  // Apps Script can't answer OPTIONS), following the redirect to read the reply.
-  function gasPost(payload) {
-    if (PORTAL_ENDPOINT.indexOf('PASTE_YOUR') === 0) {
+  // ---- GAS requests ----
+  // Apps Script Web Apps send NO CORS header and 302-redirect every request, so a
+  // browser fetch() can't read the reply ("Failed to fetch"). We work around that
+  // two ways:
+  //   • reads  → JSONP: load the endpoint as a <script> that calls us back. Script
+  //     tags aren't subject to CORS, so we actually get the JSON. (Requires the
+  //     Apps Script domains in the page's script-src CSP.)
+  //   • writes → no-cors POST: uploads carry a big base64 body that won't fit in a
+  //     GET URL, so we POST them fire-and-forget (the reply is opaque/unreadable)
+  //     and re-read the document list afterwards to confirm.
+  var jsonpSeq = 0;
+
+  function notConfigured() {
+    return PORTAL_ENDPOINT.indexOf('PASTE_YOUR') === 0;
+  }
+
+  // JSONP GET for read actions. `params` becomes the query string.
+  function gasGet(params) {
+    if (notConfigured()) {
+      return Promise.reject(new Error('The portal backend URL is not configured yet (PORTAL_ENDPOINT in js/portal.js).'));
+    }
+    return new Promise(function (resolve, reject) {
+      var cb = 'gasjsonp_' + (++jsonpSeq) + '_' + Date.now();
+      var script = document.createElement('script');
+      var settled = false;
+      var timer = setTimeout(function () { finish(new Error('The request timed out. Please try again.')); }, 25000);
+
+      function cleanup() {
+        clearTimeout(timer);
+        try { delete window[cb]; } catch (_) { window[cb] = undefined; }
+        if (script.parentNode) { script.parentNode.removeChild(script); }
+      }
+      function finish(err, data) {
+        if (settled) { return; }
+        settled = true;
+        cleanup();
+        if (err) { reject(err); } else { resolve(data); }
+      }
+
+      window[cb] = function (data) { finish(null, data); };
+      script.onerror = function () { finish(new Error('Could not reach the server. Please try again.')); };
+
+      var qs = 'callback=' + encodeURIComponent(cb);
+      Object.keys(params).forEach(function (k) {
+        qs += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+      });
+      script.src = PORTAL_ENDPOINT + '?' + qs;
+      document.head.appendChild(script);
+    });
+  }
+
+  // no-cors POST for uploads. Resolves once Apps Script has processed the request;
+  // the response is opaque, so success is confirmed by re-reading the doc list.
+  function gasUpload(payload) {
+    if (notConfigured()) {
       return Promise.reject(new Error('The portal backend URL is not configured yet (PORTAL_ENDPOINT in js/portal.js).'));
     }
     return fetch(PORTAL_ENDPOINT, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
-      redirect: 'follow'
-    }).then(function (res) { return res.json(); });
+      body: JSON.stringify(payload)
+    });
   }
 
   function readB64(file) {
@@ -109,7 +159,7 @@
     if (pin !== pin2) { return fieldErr(err, 'The two PINs do not match.'); }
 
     var btn = $('registerBtn'); btn.disabled = true; btn.textContent = 'Creating…';
-    gasPost({ action: 'register', firstName: first, lastName: last, email: email, pin: pin })
+    gasGet({ action: 'register', firstName: first, lastName: last, email: email, pin: pin })
       .then(function (data) {
         if (data && data.status === 'success') {
           setSession(email, first);
@@ -135,7 +185,7 @@
     if (!/^[0-9]{4}$/.test(pin)) { return fieldErr(err, 'Your PIN must be exactly 4 digits.'); }
 
     var btn = $('loginBtn'); btn.disabled = true; btn.textContent = 'Logging in…';
-    gasPost({ action: 'login', email: email, pin: pin })
+    gasGet({ action: 'login', email: email, pin: pin })
       .then(function (data) {
         if (data && data.status === 'success') {
           setSession(email, data.firstName || '');
@@ -166,7 +216,7 @@
     pol.innerHTML = ''; pol.appendChild(el('li', 'portal-empty', 'Loading…'));
     up.innerHTML = ''; up.appendChild(el('li', 'portal-empty', 'Loading…'));
 
-    gasPost({ action: 'getDocuments', email: getEmail() })
+    gasGet({ action: 'getDocuments', email: getEmail() })
       .then(function (data) {
         var docs = (data && data.documents) || [];
         var policies = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() === 'admin'; });
@@ -194,10 +244,11 @@
     if (file.size > MAX_FILE) { status('err', 'That file is larger than 5 MB.'); return; }
     status('ok', 'Uploading ' + file.name + '…');
     readB64(file).then(function (b64) {
-      return gasPost({ action: 'clientUpload', email: getEmail(), fileName: file.name, mimeType: file.type || 'application/octet-stream', fileData: b64 });
-    }).then(function (data) {
-      if (data && data.status === 'success') { status('ok', 'Uploaded.'); loadClient(); }
-      else { status('err', (data && data.message) || 'Upload failed.'); }
+      return gasUpload({ action: 'clientUpload', email: getEmail(), fileName: file.name, mimeType: file.type || 'application/octet-stream', fileData: b64 });
+    }).then(function () {
+      // no-cors reply is opaque; re-read to confirm the file landed.
+      status('ok', 'Uploaded.');
+      loadClient();
     }).catch(function (e2) { status('err', e2.message || 'Upload failed.'); });
   });
 
@@ -210,7 +261,7 @@
     var list = $('usersList'), sel = $('adminTargetUser');
     list.innerHTML = ''; list.appendChild(el('li', 'portal-empty', 'Loading…'));
 
-    gasPost({ action: 'getAllUsers', email: getEmail() })
+    gasGet({ action: 'getAllUsers', email: getEmail() })
       .then(function (data) {
         if (!data || data.status !== 'success') { throw new Error((data && data.message) || 'Could not load users.'); }
         var users = data.users || [];
@@ -251,12 +302,11 @@
 
     var btn = $('adminSendBtn'); btn.disabled = true; btn.textContent = 'Sending…';
     readB64(adminFile).then(function (b64) {
-      return gasPost({ action: 'adminUpload', email: getEmail(), targetEmail: target, fileName: adminFile.name, mimeType: adminFile.type || 'application/octet-stream', fileData: b64 });
-    }).then(function (data) {
-      if (data && data.status === 'success') {
-        status('ok', 'Sent to ' + target + '.');
-        $('adminSendForm').reset(); adminFile = null; $('adminFileName').textContent = '';
-      } else { fieldErr(err, (data && data.message) || 'Could not send.'); }
+      return gasUpload({ action: 'adminUpload', email: getEmail(), targetEmail: target, fileName: adminFile.name, mimeType: adminFile.type || 'application/octet-stream', fileData: b64 });
+    }).then(function () {
+      // no-cors reply is opaque; the send is optimistic (the admin gate is enforced server-side).
+      status('ok', 'Sent to ' + target + '.');
+      $('adminSendForm').reset(); adminFile = null; $('adminFileName').textContent = '';
     }).catch(function (e2) { fieldErr(err, e2.message || 'Could not send.'); })
       .then(function () { btn.disabled = false; btn.textContent = 'Send to client'; });
   });
