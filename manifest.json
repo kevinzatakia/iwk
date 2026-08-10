@@ -1,11 +1,11 @@
 {
-  "name": "Insure It With Kevin",
-  "short_name": "InsureIt",
-  "start_url": "/index.html",
+  "name": "Kevin Insurance Portal",
+  "short_name": "KevinPortal",
+  "start_url": "/portal.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2c3e50",
-  "description": "Quick and easy insurance inquiries.",
+  "description": "Your private client portal — view policies and share documents with Kevin.",
   "icons": [
     {
       "src": "/icons/icon-192.png",

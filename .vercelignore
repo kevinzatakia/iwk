@@ -1,5 +1,5 @@
 # Keep server-side source and local tooling out of the public deployment
-apps-script-enquiry-endpoint.gs
+*.gs
 .claude
 # Local tooling / editor config — not part of the site
 .claude/
@@ -15,3 +15,6 @@ InsureItWithKevin_PWA_PRD.txt
 MOTOR_SCHEME_COMPONENT.txt
 FIRE_SCHEME_COMPONENT.txt
 DEPLOY.md
+WEBAPP_IMPLEMENT.txt
+apps-script-enquiry-endpoint.gs
+apps-script-portal-endpoint.gs

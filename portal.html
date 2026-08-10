@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Client Portal — Insure It With Kevin</title>
+  <meta name="description" content="Your private client portal — view your policies and share documents with Kevin.">
+  <link rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2c3e50">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/portal.css">
+</head>
+
+<body class="portal">
+  <div class="bg-scene" aria-hidden="true"></div>
+
+  <header class="portal-header">
+    <div class="wrap portal-nav">
+      <a class="portal-brand" href="portal.html" aria-label="Client Portal home">
+        <span class="nav-brand-name">insureitwith<b>kevin</b></span>
+        <span class="portal-tag">Client Portal</span>
+      </a>
+      <nav class="portal-navlinks">
+        <!-- Populated per view by js/portal.js -->
+        <button type="button" id="installAppBtn" class="portal-install" hidden>⬇ Install app</button>
+        <button type="button" id="navAbout" class="portal-navbtn" hidden>About</button>
+        <button type="button" id="navPolicies" class="portal-navbtn" hidden>Our Policies</button>
+        <button type="button" id="navLogout" class="portal-navbtn portal-logout" hidden>Log out</button>
+        <a class="portal-navbtn" href="index.html">← Main site</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap portal-main">
+    <!-- Global status / error banner -->
+    <div id="portalStatus" class="portal-status" role="status" aria-live="polite" hidden></div>
+
+    <!-- ============ VIEW 1: HOME ============ -->
+    <section id="home-view" class="pv">
+      <div class="portal-card portal-hero">
+        <span class="eyebrow">Private client portal</span>
+        <h1>Welcome to your <em>Client Portal</em></h1>
+        <p>Log in to view the policies Kevin has shared with you, and to securely upload your own documents.</p>
+        <div class="portal-cta-row">
+          <button type="button" class="btn btn-primary" data-go="login-view">Log in</button>
+          <button type="button" class="btn btn-ghost" data-go="register-view">Register</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW 2: REGISTER ============ -->
+    <section id="register-view" class="pv" hidden>
+      <div class="portal-card portal-auth">
+        <h2 class="section-title">Create your account</h2>
+        <p class="section-sub">It only takes a minute. You'll set a 4-digit PIN to log in with.</p>
+        <form id="registerForm" novalidate>
+          <div class="portal-grid">
+            <div>
+              <label class="f-label" for="regFirst">First name</label>
+              <input class="f" id="regFirst" name="firstName" autocomplete="given-name" placeholder="First name">
+            </div>
+            <div>
+              <label class="f-label" for="regLast">Last name</label>
+              <input class="f" id="regLast" name="lastName" autocomplete="family-name" placeholder="Last name">
+            </div>
+          </div>
+          <label class="f-label" for="regEmail">Email address</label>
+          <input class="f" id="regEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com">
+          <div class="portal-grid">
+            <div>
+              <label class="f-label" for="regPin">4-digit PIN</label>
+              <input class="f" id="regPin" name="pin" type="password" inputmode="numeric" maxlength="4"
+                autocomplete="new-password" placeholder="••••">
+            </div>
+            <div>
+              <label class="f-label" for="regPin2">Confirm PIN</label>
+              <input class="f" id="regPin2" name="pin2" type="password" inputmode="numeric" maxlength="4"
+                autocomplete="new-password" placeholder="••••">
+            </div>
+          </div>
+          <div class="portal-err" id="registerErr" hidden></div>
+          <button type="submit" class="btn btn-primary portal-block" id="registerBtn">Create account</button>
+        </form>
+        <p class="portal-switch">Already registered? <button type="button" class="linkbtn" data-go="login-view">Log
+            in</button></p>
+      </div>
+    </section>
+
+    <!-- ============ VIEW 3: LOGIN ============ -->
+    <section id="login-view" class="pv" hidden>
+      <div class="portal-card portal-auth">
+        <h2 class="section-title">Log in</h2>
+        <p class="section-sub">Enter the email and 4-digit PIN you registered with.</p>
+        <form id="loginForm" novalidate>
+          <label class="f-label" for="logEmail">Email address</label>
+          <input class="f" id="logEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com">
+          <label class="f-label" for="logPin">4-digit PIN</label>
+          <input class="f" id="logPin" name="pin" type="password" inputmode="numeric" maxlength="4"
+            autocomplete="current-password" placeholder="••••">
+          <div class="portal-err" id="loginErr" hidden></div>
+          <button type="submit" class="btn btn-primary portal-block" id="loginBtn">Log in</button>
+        </form>
+        <p class="portal-switch">New here? <button type="button" class="linkbtn" data-go="register-view">Create an
+            account</button></p>
+      </div>
+    </section>
+
+    <!-- ============ VIEW 4: CLIENT DASHBOARD ============ -->
+    <section id="client-dashboard-view" class="pv" hidden>
+      <div class="portal-welcome">
+        <h2>Hi <span id="clientName">there</span> 👋</h2>
+        <p>Here are your policies and documents.</p>
+      </div>
+
+      <div class="portal-folders">
+        <div class="portal-folder">
+          <div class="portal-folder-head">
+            <h3>📁 My Policies</h3>
+            <span class="portal-folder-sub">Shared with you by Kevin · read-only</span>
+          </div>
+          <ul class="portal-doclist" id="policiesList">
+            <li class="portal-empty">Loading…</li>
+          </ul>
+        </div>
+
+        <div class="portal-folder">
+          <div class="portal-folder-head">
+            <h3>📤 My Uploads</h3>
+            <span class="portal-folder-sub">Documents you've shared with Kevin</span>
+          </div>
+          <ul class="portal-doclist" id="uploadsList">
+            <li class="portal-empty">Loading…</li>
+          </ul>
+          <label class="btn btn-primary portal-upload-btn" for="clientUploadInput">＋ Upload document</label>
+          <input id="clientUploadInput" class="portal-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png">
+          <div class="portal-folder-note">PDF, JPG or PNG · up to 5&nbsp;MB</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW 5: ADMIN DASHBOARD ============ -->
+    <section id="admin-dashboard-view" class="pv" hidden>
+      <div class="portal-welcome">
+        <h2>Admin dashboard</h2>
+        <p>Registered clients and document distribution.</p>
+      </div>
+
+      <div class="portal-folders">
+        <div class="portal-folder">
+          <div class="portal-folder-head">
+            <h3>👥 Clients</h3>
+            <span class="portal-folder-sub">Everyone registered on the portal</span>
+          </div>
+          <ul class="portal-userlist" id="usersList">
+            <li class="portal-empty">Loading…</li>
+          </ul>
+        </div>
+
+        <div class="portal-folder">
+          <div class="portal-folder-head">
+            <h3>📨 Send a policy</h3>
+            <span class="portal-folder-sub">Attach a PDF to a client's "My Policies"</span>
+          </div>
+          <form id="adminSendForm" novalidate>
+            <label class="f-label" for="adminTargetUser">Client</label>
+            <select class="f portal-select" id="adminTargetUser">
+              <option value="" disabled selected>Select a client…</option>
+            </select>
+            <label class="btn btn-ghost portal-upload-btn" for="adminUploadInput" id="adminUploadLabel">📎 Choose
+              PDF</label>
+            <input id="adminUploadInput" class="portal-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png">
+            <div class="portal-file-name" id="adminFileName"></div>
+            <div class="portal-err" id="adminErr" hidden></div>
+            <button type="submit" class="btn btn-primary portal-block" id="adminSendBtn">Send to client</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ MODALS ============ -->
+  <div class="pmodal" id="modalAbout" hidden>
+    <div class="pmodal-box">
+      <button type="button" class="pmodal-close" data-close-modal aria-label="Close">×</button>
+      <h3>About Kevin</h3>
+      <p>Kevin Zatakia is an independent, IRDAI-licensed insurance advisor with 7+ years of experience helping families
+        compare, choose and claim across every major insurer — no jargon, no pressure.</p>
+      <p>This portal is a private space for Kevin's clients to keep their policies and documents in one place.</p>
+    </div>
+  </div>
+
+  <div class="pmodal" id="modalPolicies" hidden>
+    <div class="pmodal-box">
+      <button type="button" class="pmodal-close" data-close-modal aria-label="Close">×</button>
+      <h3>Our Policies</h3>
+      <p>Kevin advises across Life, Health, Motor, Travel, Fire, Shop, Personal Accident and more. To explore or start a
+        new enquiry, visit the <a href="index.html#picker">main site</a>.</p>
+    </div>
+  </div>
+
+  <script src="js/portal.js" defer></script>
+  <script src="js/pwa.js" defer></script>
+</body>
+
+</html>

@@ -60,6 +60,7 @@ jobs:
             **/node_modules/**
             vercel.json
             .vercelignore
-            apps-script-enquiry-endpoint.gs
+            **/*.gs
             **/*.md
+            **/*.txt
             **/.claude/**
