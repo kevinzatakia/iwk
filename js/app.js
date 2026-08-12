@@ -9,7 +9,7 @@ function el(tag, cls, text) {
 
 (function () {
   var WA_NUM = '918369988285';
-  var EMAIL = 'kevinzatakia10@gmail.com';
+  var EMAIL = 'admin@insureitwithkevin.in';
 
   var PRODUCTS = ['Life','Health','Motor','Term','Travel','Home','Fire','Shop','Workmen Compensation','Personal Accident','Port my policy'];
   var DESCRIPTIONS = {

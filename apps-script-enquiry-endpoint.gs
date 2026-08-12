@@ -20,7 +20,7 @@
  */
 
 // Where enquiries are delivered:
-var TO_EMAIL = 'kevinzatakia10@gmail.com';
+var TO_EMAIL = 'admin@insureitwithkevin.in';
 
 // Attachment rules (must match the website's validation):
 var ALLOWED_EXTS = ['jpg', 'jpeg', 'pdf', 'doc', 'docx'];

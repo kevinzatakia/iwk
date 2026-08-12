@@ -5,7 +5,7 @@
 // inline form used to do.
 (function () {
   var WA_NUM = '918369988285';
-  var EMAIL = 'kevinzatakia10@gmail.com';
+  var EMAIL = 'admin@insureitwithkevin.in';
 
   var PRODUCTS = ['Life', 'Health', 'Motor', 'Term', 'Travel', 'Home', 'Fire', 'Shop', 'Workmen Compensation', 'Personal Accident', 'Port my policy'];
 
@@ -103,7 +103,7 @@
   // Google Apps Script web-app URL that receives enquiries and emails them to
   // Kevin (with the policy document attached when porting). Paste the URL you
   // get after deploying apps-script-enquiry-endpoint.gs — it ends in /exec.
-  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxXTjDanx0ZdZExoP3-arcDQo0Wb9EbsZ6_BrDjuYIQxAcyRP42a8KkEHhhiEFg7pys6Q/exec';
+  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxCCZ0SPD5rJrCWs4jwlKD5F7RJFoCt-qGi5BW-8F5_K04HF1Yq8Ma3sR836eZ5oE3hSg/exec';
 
   var submitBtn = document.getElementById('formSubmit');
   var statusEl = document.getElementById('formStatus');

@@ -8,9 +8,9 @@
   // ============================================================
   // Paste the /exec URL of the deployed portal Apps Script (see
   // apps-script-portal-endpoint.gs) here:
-  var PORTAL_ENDPOINT = 'https://script.google.com/macros/s/AKfycbw-zepMOKAjEcmwaxD1YCGsw3RMBYDf8AEokVNlJe2aoXxuG8Hc6ky0BtSeknl4jpaJ/exec';
+  var PORTAL_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwDJDjcEmMT1dIwZT_iS_zyUjy19MrERCkLhZXOUczNyRIYo61uQh7UeK-8ShcVf1a8/exec';
   // The one email address that unlocks the admin dashboard:
-  var ADMIN_EMAIL = 'kevinzatakia10@gmail.com';
+  var ADMIN_EMAIL = 'admin@insureitwithkevin.in';
 
   var MAX_FILE = 5 * 1024 * 1024; // 5 MB
   var EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;

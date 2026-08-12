@@ -407,7 +407,7 @@
   var footWa = document.getElementById('footWa');
   var footMail = document.getElementById('footMail');
   if (footWa) { footWa.href = 'https://wa.me/' + WA_NUM + '?text=' + encodeURIComponent("Hi Kevin! I'd like some help with insurance."); }
-  if (footMail) { footMail.href = 'mailto:kevinzatakia10@gmail.com'; }
+  if (footMail) { footMail.href = 'mailto:admin@insureitwithkevin.in'; }
 
   restartBtn.addEventListener('click', function () {
     formData = { name: '', email: '', phone: '', carNumber: '', claim: null, multiClaim: null, expiringPolicy: null, rcBook: null, addons: '' };
