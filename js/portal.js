@@ -277,35 +277,161 @@
   // ============================================================
   var adminFile = null;
 
+  // Admin client list state (search + pagination + click-to-view).
+  var PAGE_SIZE = 5;
+  var allUsers = [];
+  var filteredUsers = [];
+  var usersPage = 1;
+  var selectedUser = null;
+
+  function fullName(u) { return ((u.firstName || '') + ' ' + (u.lastName || '')).trim(); }
+
   function loadAdmin() {
-    var list = $('usersList'), sel = $('adminTargetUser');
+    var list = $('usersList');
     list.innerHTML = ''; list.appendChild(el('li', 'portal-empty', 'Loading…'));
+    $('usersPagerTop').hidden = true; $('usersPagerBottom').hidden = true;
+    selectedUser = null; $('viewingFolder').hidden = true;
 
     gasGet({ action: 'getAllUsers', email: getEmail() })
       .then(function (data) {
         if (!data || data.status !== 'success') { throw new Error((data && data.message) || 'Could not load users.'); }
-        var users = data.users || [];
-        list.innerHTML = '';
-        sel.innerHTML = '<option value="" disabled selected>Select a client…</option>';
-        if (!users.length) { list.appendChild(el('li', 'portal-empty', 'No clients registered yet.')); return; }
-        users.forEach(function (u) {
-          var li = el('li');
-          var box = el('div');
-          box.appendChild(el('div', 'portal-user-name', ((u.firstName || '') + ' ' + (u.lastName || '')).trim() || u.email));
-          box.appendChild(el('div', 'portal-user-email', u.email));
-          li.appendChild(box);
-          list.appendChild(li);
-
-          var opt = el('option', null, (((u.firstName || '') + ' ' + (u.lastName || '')).trim() || u.email) + ' — ' + u.email);
-          opt.value = u.email;
-          sel.appendChild(opt);
-        });
+        allUsers = data.users || [];
+        filteredUsers = allUsers.slice();
+        usersPage = 1;
+        populateSendSelect(allUsers);
+        renderUsers();
       })
       .catch(function (e2) {
         list.innerHTML = ''; list.appendChild(el('li', 'portal-empty', 'Could not load.'));
         status('err', e2.message || 'Could not load users.');
       });
   }
+
+  // The "Send a policy" dropdown always lists every client (not paginated).
+  function populateSendSelect(users) {
+    var sel = $('adminTargetUser');
+    sel.innerHTML = '<option value="" disabled selected>Select a client…</option>';
+    users.forEach(function (u) {
+      var opt = el('option', null, (fullName(u) || u.email) + ' — ' + u.email);
+      opt.value = u.email;
+      sel.appendChild(opt);
+    });
+  }
+
+  function renderUsers() {
+    var list = $('usersList');
+    list.innerHTML = '';
+    if (!filteredUsers.length) {
+      list.appendChild(el('li', 'portal-empty', allUsers.length ? 'No clients match your search.' : 'No clients registered yet.'));
+      renderPager(0);
+      return;
+    }
+    var totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE);
+    if (usersPage > totalPages) { usersPage = totalPages; }
+    if (usersPage < 1) { usersPage = 1; }
+    var start = (usersPage - 1) * PAGE_SIZE;
+    filteredUsers.slice(start, start + PAGE_SIZE).forEach(function (u) { list.appendChild(userRow(u)); });
+    renderPager(totalPages);
+  }
+
+  function userRow(u) {
+    var li = el('li', 'portal-user-row');
+    li.tabIndex = 0; li.setAttribute('role', 'button');
+    var box = el('div');
+    box.appendChild(el('div', 'portal-user-name', fullName(u) || u.email));
+    box.appendChild(el('div', 'portal-user-email', u.email));
+    li.appendChild(box);
+    li.appendChild(el('span', 'portal-user-view', 'View ›'));
+    if (selectedUser && (selectedUser.email || '').toLowerCase() === (u.email || '').toLowerCase()) {
+      li.classList.add('is-selected');
+    }
+    li.addEventListener('click', function () { viewClient(u); });
+    li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); viewClient(u); } });
+    return li;
+  }
+
+  // Pagination controls (rendered identically above and below the list).
+  function renderPager(totalPages) {
+    [$('usersPagerTop'), $('usersPagerBottom')].forEach(function (p) {
+      p.innerHTML = '';
+      if (totalPages <= 1) { p.hidden = true; return; }
+      p.hidden = false;
+      p.appendChild(pageBtn('‹', usersPage - 1, usersPage === 1, false));
+      for (var i = 1; i <= totalPages; i++) { p.appendChild(pageBtn(String(i), i, false, i === usersPage)); }
+      p.appendChild(pageBtn('›', usersPage + 1, usersPage === totalPages, false));
+    });
+  }
+
+  function pageBtn(label, goTo, disabled, active) {
+    var b = el('button', 'portal-page-btn' + (active ? ' is-active' : ''), label);
+    b.type = 'button';
+    if (disabled) { b.disabled = true; }
+    b.addEventListener('click', function () { usersPage = goTo; renderUsers(); });
+    return b;
+  }
+
+  // Show a chosen client's documents (admin-sent + client-uploaded).
+  function viewClient(u) {
+    selectedUser = u;
+    renderUsers(); // refresh the highlight
+    var sel = $('adminTargetUser'); if (sel) { sel.value = u.email; } // pre-select them for sending
+    $('viewingName').textContent = fullName(u) || u.email;
+    $('viewingFolder').hidden = false;
+    loadClientDocs(u.email);
+  }
+
+  function loadClientDocs(email) {
+    var aList = $('adminDocsList'), cList = $('clientDocsList');
+    aList.innerHTML = ''; aList.appendChild(el('li', 'portal-empty', 'Loading…'));
+    cList.innerHTML = ''; cList.appendChild(el('li', 'portal-empty', 'Loading…'));
+    gasGet({ action: 'getDocuments', email: email })
+      .then(function (data) {
+        var docs = (data && data.documents) || [];
+        var sent = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() === 'admin'; });
+        var uploaded = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() !== 'admin'; });
+        renderViewList(aList, sent, 'You haven\'t sent any policies yet.');
+        renderViewList(cList, uploaded, 'This client hasn\'t uploaded anything.');
+      })
+      .catch(function (e2) {
+        aList.innerHTML = ''; aList.appendChild(el('li', 'portal-empty', 'Could not load.'));
+        cList.innerHTML = ''; cList.appendChild(el('li', 'portal-empty', 'Could not load.'));
+        status('err', e2.message || 'Could not load client documents.');
+      });
+  }
+
+  // Read-only document rows for the admin viewing panel (no delete).
+  function renderViewList(ul, docs, emptyMsg) {
+    ul.innerHTML = '';
+    if (!docs.length) { ul.appendChild(el('li', 'portal-empty', emptyMsg)); return; }
+    docs.forEach(function (d) {
+      var li = el('li');
+      var main = el('div', 'portal-doc-main');
+      var a = el('a', null, d.fileName || 'Document');
+      a.href = d.fileURL || '#'; a.target = '_blank'; a.rel = 'noopener';
+      main.appendChild(a);
+      if (d.timestamp) { main.appendChild(el('span', 'portal-doc-meta', new Date(d.timestamp).toLocaleDateString())); }
+      li.appendChild(main);
+      ul.appendChild(li);
+    });
+  }
+
+  function closeViewing() {
+    selectedUser = null;
+    $('viewingFolder').hidden = true;
+    renderUsers();
+  }
+
+  // Search filters the full client list, resets to page 1.
+  $('clientSearch').addEventListener('input', function () {
+    var q = this.value.trim().toLowerCase();
+    filteredUsers = !q ? allUsers.slice() : allUsers.filter(function (u) {
+      return (fullName(u) + ' ' + (u.email || '')).toLowerCase().indexOf(q) >= 0;
+    });
+    usersPage = 1;
+    renderUsers();
+  });
+
+  $('viewingClose').addEventListener('click', closeViewing);
 
   $('adminUploadInput').addEventListener('change', function () {
     adminFile = (this.files && this.files[0]) || null;
@@ -327,6 +453,10 @@
       // no-cors reply is opaque; the send is optimistic (the admin gate is enforced server-side).
       status('ok', 'Sent to ' + target + '.');
       $('adminSendForm').reset(); adminFile = null; $('adminFileName').textContent = '';
+      // If we're viewing this client, refresh their documents to show the new policy.
+      if (selectedUser && (selectedUser.email || '').toLowerCase() === target.toLowerCase()) {
+        setTimeout(function () { loadClientDocs(selectedUser.email); }, 1200);
+      }
     }).catch(function (e2) { fieldErr(err, e2.message || 'Could not send.'); })
       .then(function () { btn.disabled = false; btn.textContent = 'Send to client'; });
   });

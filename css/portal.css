@@ -139,6 +139,39 @@ body.portal { min-height: 100vh; }
 .portal-user-name { font-weight: 700; color: var(--ink); }
 .portal-user-email { font-size: 12.5px; color: var(--ink-mute); }
 
+/* admin: right column stacks Send + Viewing */
+.portal-admin-right { display: flex; flex-direction: column; gap: 18px; }
+
+/* admin: client search */
+.portal-search { width: 100%; margin-bottom: 12px; }
+
+/* admin: pagination */
+.portal-pager { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; margin: 4px 0 10px; }
+.portal-pager[hidden] { display: none; }
+.portal-pager + .portal-userlist { margin-top: 2px; }
+.portal-page-btn {
+  min-width: 34px; padding: 6px 10px; font-family: var(--sans); font-size: 13px; font-weight: 700; cursor: pointer;
+  color: var(--ink-soft); background: #fff; border: 1px solid var(--line); border-radius: 8px; transition: color .15s, border-color .15s, background .15s;
+}
+.portal-page-btn:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+.portal-page-btn.is-active { background: var(--green); color: #fff; border-color: var(--green); }
+.portal-page-btn:disabled { opacity: .4; cursor: default; }
+
+/* admin: clickable client rows */
+.portal-user-row { cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; }
+.portal-user-row:hover { border-color: var(--green); background: #fff; }
+.portal-user-row.is-selected { border-color: var(--green); background: #fff; box-shadow: 0 0 0 3px rgba(23, 105, 74, .12); }
+.portal-user-row:focus-visible { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(23, 105, 74, .16); }
+.portal-user-view { font-size: 12px; font-weight: 800; color: var(--green); white-space: nowrap; }
+
+/* admin: viewing panel */
+.portal-viewing { border-color: rgba(23, 105, 74, .3); }
+.portal-viewing-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.portal-viewing-close { background: none; border: none; font-size: 24px; line-height: 1; cursor: pointer; color: var(--ink-mute); padding: 0 2px; }
+.portal-viewing-close:hover { color: var(--ink); }
+.portal-view-group + .portal-view-group { margin-top: 16px; }
+.portal-view-label { font-size: 12.5px; font-weight: 800; color: var(--ink-soft); margin-bottom: 8px; }
+
 .portal-upload-btn { width: 100%; margin-top: 14px; cursor: pointer; text-align: center; }
 .portal-file-input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
 .portal-file-name { margin-top: 10px; font-size: 13px; color: var(--green-deep); font-weight: 600; word-break: break-word; }

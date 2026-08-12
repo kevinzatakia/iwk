@@ -169,30 +169,60 @@
         <div class="portal-folder">
           <div class="portal-folder-head">
             <h3>👥 Clients</h3>
-            <span class="portal-folder-sub">Everyone registered on the portal</span>
+            <span class="portal-folder-sub">Everyone registered on the portal · click a client to view their documents</span>
           </div>
+          <input id="clientSearch" class="f portal-search" type="search" placeholder="🔍  Search by name or email…"
+            autocomplete="off">
+          <div class="portal-pager" id="usersPagerTop" hidden></div>
           <ul class="portal-userlist" id="usersList">
             <li class="portal-empty">Loading…</li>
           </ul>
+          <div class="portal-pager" id="usersPagerBottom" hidden></div>
         </div>
 
-        <div class="portal-folder">
-          <div class="portal-folder-head">
-            <h3>📨 Send a policy</h3>
-            <span class="portal-folder-sub">Attach a PDF to a client's "My Policies"</span>
+        <div class="portal-admin-right">
+          <!-- Part 1: Send a policy (always visible) -->
+          <div class="portal-folder">
+            <div class="portal-folder-head">
+              <h3>📨 Send a policy</h3>
+              <span class="portal-folder-sub">Attach a PDF to a client's "My Policies"</span>
+            </div>
+            <form id="adminSendForm" novalidate>
+              <label class="f-label" for="adminTargetUser">Client</label>
+              <select class="f portal-select" id="adminTargetUser">
+                <option value="" disabled selected>Select a client…</option>
+              </select>
+              <label class="btn btn-ghost portal-upload-btn" for="adminUploadInput" id="adminUploadLabel">📎 Choose
+                PDF</label>
+              <input id="adminUploadInput" class="portal-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png">
+              <div class="portal-file-name" id="adminFileName"></div>
+              <div class="portal-err" id="adminErr" hidden></div>
+              <button type="submit" class="btn btn-primary portal-block" id="adminSendBtn">Send to client</button>
+            </form>
           </div>
-          <form id="adminSendForm" novalidate>
-            <label class="f-label" for="adminTargetUser">Client</label>
-            <select class="f portal-select" id="adminTargetUser">
-              <option value="" disabled selected>Select a client…</option>
-            </select>
-            <label class="btn btn-ghost portal-upload-btn" for="adminUploadInput" id="adminUploadLabel">📎 Choose
-              PDF</label>
-            <input id="adminUploadInput" class="portal-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png">
-            <div class="portal-file-name" id="adminFileName"></div>
-            <div class="portal-err" id="adminErr" hidden></div>
-            <button type="submit" class="btn btn-primary portal-block" id="adminSendBtn">Send to client</button>
-          </form>
+
+          <!-- Part 2: Viewing a client's policies (only after clicking a client) -->
+          <div class="portal-folder portal-viewing" id="viewingFolder" hidden>
+            <div class="portal-folder-head portal-viewing-head">
+              <div>
+                <h3>Viewing <span id="viewingName">client</span>'s policies</h3>
+                <span class="portal-folder-sub">Everything on this client's account</span>
+              </div>
+              <button type="button" class="portal-viewing-close" id="viewingClose" aria-label="Close">×</button>
+            </div>
+            <div class="portal-view-group">
+              <h4 class="portal-view-label">📨 Sent by you</h4>
+              <ul class="portal-doclist" id="adminDocsList">
+                <li class="portal-empty">Loading…</li>
+              </ul>
+            </div>
+            <div class="portal-view-group">
+              <h4 class="portal-view-label">📎 Uploaded by client</h4>
+              <ul class="portal-doclist" id="clientDocsList">
+                <li class="portal-empty">Loading…</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </section>
