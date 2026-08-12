@@ -52,6 +52,7 @@ function el(tag, cls, text) {
   var EXCLUSIVE_PAGES = {
     'Health': 'health.html',
     'Term': 'term.html',
+    'Workmen Compensation': 'workmen.html',
     'Travel': 'travel.html',
     'Motor': 'motor.html',
     'Fire': 'fire.html',

@@ -1,0 +1,40 @@
+/* ================================================================
+   Workmen Compensation enquiry — additions on top of css/health.css
+   (the yb-* wizard) for text-input steps, the ₹ salary prefix, the
+   compact duration/medical pills, and the medical helper note.
+   ================================================================ */
+
+/* Textareas reuse the .f input look but need height + vertical resize. */
+textarea.f { min-height: 90px; resize: vertical; font-family: var(--sans); line-height: 1.5; }
+
+.wc-field-label { display: block; margin-bottom: 6px; }
+.wc-sub { display: block; margin-top: 4px; font-size: 12.5px; color: var(--ink-mute); }
+
+/* ₹-prefixed salary input. */
+.wc-rupee { position: relative; }
+.wc-rupee::before {
+  content: '₹'; position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--ink-soft); font-weight: 700; pointer-events: none;
+}
+.wc-rupee input { padding-left: 30px; }
+
+/* Compact single-select pills (duration, medical Yes/No). */
+.wc-pills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 2px; }
+.wc-pill {
+  padding: 11px 18px; border-radius: 999px; border: 1.5px solid var(--line);
+  background: var(--ivory); font-family: var(--sans); font-weight: 700; font-size: 14px;
+  color: var(--ink-soft); cursor: pointer; transition: all .15s ease;
+}
+.wc-pill:hover { border-color: var(--green); }
+.wc-pill.on { background: var(--green-tint); border-color: var(--green); color: var(--green-deep); }
+
+/* Sub-question label above a pill group inside a multi-field step. */
+.wc-pill-q { display: block; font-size: 14.5px; font-weight: 700; color: var(--ink); margin: 4px 0 8px; }
+
+/* Muted helper note revealed when medical cover = Yes. */
+.wc-note {
+  margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--ivory); border: 1px dashed var(--green);
+  font-size: 13px; color: var(--ink-soft); line-height: 1.5;
+}
+.wc-note[hidden] { display: none; }
