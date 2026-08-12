@@ -51,6 +51,7 @@ function el(tag, cls, text) {
   // selecting one clears and locks every other option (unclick it to go back).
   var EXCLUSIVE_PAGES = {
     'Health': 'health.html',
+    'Term': 'term.html',
     'Travel': 'travel.html',
     'Motor': 'motor.html',
     'Fire': 'fire.html',

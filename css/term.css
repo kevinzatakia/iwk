@@ -1,0 +1,42 @@
+/* ================================================================
+   Term Life enquiry — additions on top of css/health.css (the yb-*
+   wizard) for the ITR file-upload step and the existing-plan input.
+   ================================================================ */
+
+/* Existing-plan sum-insured input, revealed when "Yes" is chosen. */
+.tm-si-reveal { margin-top: 14px; }
+.tm-si-reveal .f-label { display: block; margin-bottom: 6px; }
+
+/* ---------- ITR upload area (step 5) ---------- */
+.tm-upload {
+  border: 1.5px dashed var(--green); background: var(--green-tint);
+  border-radius: 14px; padding: 20px 18px; text-align: center;
+}
+.tm-upload-hint { font-size: 14px; font-weight: 600; color: var(--green-deep); }
+.tm-upload-sub { margin-top: 6px; font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+
+.tm-file-label {
+  display: inline-block; margin-top: 14px; cursor: pointer;
+  padding: 11px 20px; border-radius: 999px; border: 1.5px solid var(--green);
+  background: #fff; color: var(--green-deep); font-family: var(--sans);
+  font-weight: 700; font-size: 14px; transition: background .15s ease;
+}
+.tm-file-label:hover { background: #fff; border-color: var(--green-deep); }
+/* Visually-hidden native file input (kept accessible). */
+.tm-file-input {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); border: 0;
+}
+.tm-file-name {
+  margin-top: 12px; font-size: 13.5px; font-weight: 700; color: var(--green-deep);
+  word-break: break-word;
+}
+.tm-file-name .tm-file-clear {
+  margin-left: 8px; background: none; border: none; cursor: pointer;
+  color: #b42318; font-weight: 800; font-size: 14px; padding: 0 4px;
+}
+
+/* Two submit buttons side by side (Skip / Upload). */
+.tm-submit-row { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+.tm-submit-row .btn { flex: 1 1 0; min-width: 150px; margin-top: 0; }
+.tm-submit-row .btn[hidden] { display: none; }
