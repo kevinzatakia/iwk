@@ -8,7 +8,7 @@
   // ============================================================
   // Paste the /exec URL of the deployed portal Apps Script (see
   // apps-script-portal-endpoint.gs) here:
-  var PORTAL_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwDFsRtDJ0pYHgyJ6z9lu_N5ZfZVDwX5Vev2wSwmjy0T462bhF2N_m6i--RnQ1PNe9W/exec';
+  var PORTAL_ENDPOINT = 'https://script.google.com/macros/s/AKfycbw-zepMOKAjEcmwaxD1YCGsw3RMBYDf8AEokVNlJe2aoXxuG8Hc6ky0BtSeknl4jpaJ/exec';
   // The one email address that unlocks the admin dashboard:
   var ADMIN_EMAIL = 'kevinzatakia10@gmail.com';
 
