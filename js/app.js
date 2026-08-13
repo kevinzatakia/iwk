@@ -53,6 +53,7 @@ function el(tag, cls, text) {
     'Health': 'health.html',
     'Term': 'term.html',
     'Workmen Compensation': 'workmen.html',
+    'Personal Accident': 'personal-accident.html',
     'Travel': 'travel.html',
     'Motor': 'motor.html',
     'Fire': 'fire.html',
