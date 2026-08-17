@@ -1,0 +1,89 @@
+# System Prompt / PRD: Google Analytics 4 (GA4) Custom Event Tracking
+
+## 1. Project Objective
+Integrate Google Analytics 4 (GA4) into an existing vanilla HTML/CSS/JS single-page website. The goal is to track page views and, more importantly, track user progression through custom step-by-step progressive disclosure forms. 
+CRITICAL RULE: Do not pass any Personally Identifiable Information (PII) such as names, emails, or phone numbers into GA4 events.
+
+## 2. Tech Stack & Environment
+* Frontend: Vanilla HTML5, CSS3, and Vanilla JavaScript (ES6+).
+* Tracking Library: Google tag (`gtag.js`).
+* Architecture: The site uses DOM manipulation (hiding/showing divs) for step-by-step forms. Because it's a single page, we must use Custom Events to track form progression rather than URL page views.
+
+## 3. Phase 1: Global Site Tag Initialization
+* Inject the base GA4 tracking code into the `<head>` of the `index.html` file.
+* Use a placeholder `G-XXXXXXXXXX` for the Measurement ID so the owner can replace it with their actual ID.
+
+```html
+<!-- Google tag (gtag.js) -->
+<script async src="[https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX](https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX)"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
+
+```
+
+## 4. Phase 2: Custom Event Tracking for Progressive Forms
+
+The core value of this implementation is tracking form abandonment. The coding agent must insert `gtag()` event calls into the existing JavaScript functions that handle the "Next" button clicks and state transitions for all insurance forms (Term, Motor, Fire, PA, Workmen, Travel, Health).
+
+### Event 1: Form Started
+
+Trigger this when the user clicks the card/button to open a specific insurance scheme.
+
+```javascript
+gtag('event', 'form_start', {
+  'form_name': 'Motor_Insurance', // Change dynamically based on the form opened
+  'form_destination': 'Lead_Capture'
+});
+
+```
+
+### Event 2: Step Completed
+
+Trigger this inside the `nextStep()` function whenever a user successfully completes a step and the DOM transitions to the next question.
+
+```javascript
+gtag('event', 'form_step_complete', {
+  'form_name': 'Motor_Insurance',
+  'step_number': 2, // Dynamically update this based on the current step
+  'step_name': 'Car_Details' // e.g., 'Upload_RC_Book', 'Income_Bracket'
+});
+
+```
+
+### Event 3: Form Submitted (Lead Generated)
+
+Trigger this inside the `fetch()` success block when the data is successfully sent to the Google Apps Script backend. This is a highly valuable conversion event.
+
+```javascript
+gtag('event', 'generate_lead', {
+  'form_name': 'Motor_Insurance',
+  'currency': 'INR',
+  'value': 1 // Optional: Assign a theoretical lead value
+});
+
+```
+
+## 5. Phase 3: Interaction Tracking
+
+Add event listeners to track other key interactions on the single-pager:
+
+* **WhatsApp/Call Button Clicks:** If there are direct "Call Me" or "WhatsApp" links on the site, track them.
+
+```javascript
+gtag('event', 'contact_click', {
+  'method': 'WhatsApp' // or 'Phone'
+});
+
+```
+
+## 6. Implementation Instructions for Agent
+
+1. Add the global script to the `<head>`.
+2. Locate the JavaScript file/block handling the progressive form state machines.
+3. Inject the `gtag('event', ...)` functions strategically at the moment of state transition. Ensure errors in `gtag` do not break the form flow (wrap in simple `if(typeof gtag === 'function')` checks if necessary).
+

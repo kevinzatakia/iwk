@@ -54,6 +54,7 @@ function el(tag, cls, text) {
     'Term': 'term.html',
     'Workmen Compensation': 'workmen.html',
     'Personal Accident': 'personal-accident.html',
+    'Home': 'home.html',
     'Travel': 'travel.html',
     'Motor': 'motor.html',
     'Fire': 'fire.html',

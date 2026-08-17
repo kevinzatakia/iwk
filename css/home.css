@@ -1,0 +1,32 @@
+/* ================================================================
+   Home (Bharat Griha Raksha) enquiry — additions on top of css/health.css
+   (the yb-* wizard): number/textarea fields, per-question Yes/No pills,
+   and conditional reveals.
+   ================================================================ */
+
+textarea.f { min-height: 90px; resize: vertical; font-family: var(--sans); line-height: 1.5; }
+.hm-field-label { display: block; margin-bottom: 6px; }
+.hm-sub { display: block; margin-top: 4px; font-size: 12.5px; color: var(--ink-mute); }
+
+/* A single question with its Yes/No (or multi-choice) pills below it. */
+.hm-q { margin-top: 18px; }
+.hm-q:first-of-type { margin-top: 4px; }
+.hm-q-label { display: block; font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.5; margin-bottom: 9px; }
+
+.hm-pills { display: flex; flex-wrap: wrap; gap: 10px; }
+.hm-pill {
+  padding: 10px 18px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--ivory);
+  font-family: var(--sans); font-weight: 700; font-size: 14px; color: var(--ink-soft); cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.hm-pill:hover { border-color: var(--green); }
+.hm-pill.on { background: var(--green-tint); border-color: var(--green); color: var(--green-deep); }
+
+/* Conditional reveal (e.g. claims premium/claim inputs). */
+.hm-reveal { margin-top: 14px; padding: 14px; border-radius: 12px; border: 1.5px dashed var(--green); background: var(--green-tint); }
+.hm-reveal[hidden] { display: none; }
+
+/* ₹-prefixed inputs. */
+.hm-rupee { position: relative; }
+.hm-rupee::before { content: '₹'; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--ink-soft); font-weight: 700; pointer-events: none; }
+.hm-rupee input { padding-left: 30px; }
