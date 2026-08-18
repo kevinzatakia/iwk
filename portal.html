@@ -133,8 +133,78 @@
         <p>Here are your policies and documents.</p>
       </div>
 
-      <div class="portal-folders">
+      <!-- Family Organizer opt-in (only for POCs, when Family Mode is off) -->
+      <div class="portal-optin" id="familyOptinBanner" hidden>
+        <div class="portal-optin-text">
+          <strong>👪 Organize your family's insurance in one place.</strong>
+          <span>See everyone's policies, renewals and claims from your dashboard — completely optional.</span>
+        </div>
+        <div class="portal-optin-actions">
+          <button type="button" class="btn btn-ghost" id="familyLearnMore">Learn more</button>
+          <button type="button" class="btn btn-primary" id="familyActivate">Turn on</button>
+        </div>
+        <button type="button" class="portal-optin-dismiss" id="familyDismiss" aria-label="Dismiss">×</button>
+      </div>
+
+      <!-- Family Mode toggle (only for POCs) -->
+      <div class="portal-familytoggle" id="familyToggleRow" hidden>
+        <span class="portal-familytoggle-label">👪 Family Mode</span>
+        <label class="portal-switch" for="familyModeSwitch">
+          <input type="checkbox" id="familyModeSwitch">
+          <span class="portal-switch-track"><span class="portal-switch-knob"></span></span>
+        </label>
+      </div>
+
+      <!-- ===== Family hub (shown when Family Mode is on) ===== -->
+      <section class="portal-familyhub" id="familyHub" hidden>
+        <div class="portal-hub-stats">
+          <div class="portal-stat portal-stat-cover">
+            <span class="portal-stat-label">Total family cover</span>
+            <span class="portal-stat-value" id="familyTotalCover">—</span>
+            <span class="portal-stat-sub" id="familyCoverSub"></span>
+          </div>
+          <div class="portal-stat">
+            <span class="portal-stat-label">Active claims</span>
+            <span class="portal-stat-value" id="familyActiveClaims">—</span>
+            <span class="portal-stat-sub">across the family</span>
+          </div>
+        </div>
+
+        <div class="portal-memtabs" id="familyMemberTabs" role="tablist"></div>
+
         <div class="portal-folder">
+          <div class="portal-folder-head">
+            <h3>⏳ Upcoming renewals</h3>
+            <span class="portal-folder-sub">The next due dates across the family</span>
+          </div>
+          <ul class="portal-timeline" id="familyTimeline">
+            <li class="portal-empty">Loading…</li>
+          </ul>
+        </div>
+
+        <div class="portal-folder">
+          <div class="portal-folder-head">
+            <h3>📋 Policies &amp; premiums</h3>
+            <span class="portal-folder-sub" id="familyPoliciesSub">Every policy, with the amount due. Tap “Share” to forward the details.</span>
+          </div>
+          <ul class="portal-ledger" id="familyPolicies">
+            <li class="portal-empty">Loading…</li>
+          </ul>
+        </div>
+
+        <div class="portal-folder">
+          <div class="portal-folder-head">
+            <h3>🩺 Claims tracker</h3>
+            <span class="portal-folder-sub">Reimbursement &amp; cashless status, per member</span>
+          </div>
+          <ul class="portal-claims" id="familyClaims">
+            <li class="portal-empty">Loading…</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="portal-folders" id="individualFolders">
+        <div class="portal-folder" id="policiesFolder">
           <div class="portal-folder-head">
             <h3>Your Policies</h3>
             <span class="portal-folder-sub">Shared with you by Kevin · read-only</span>
@@ -237,6 +307,22 @@
       <p>Kevin Zatakia is an independent, IRDAI-licensed insurance advisor with 7+ years of experience helping families
         compare, choose and claim across every major insurer — no jargon, no pressure.</p>
       <p>This portal is a private space for Kevin's clients to keep their policies and documents in one place.</p>
+    </div>
+  </div>
+
+  <div class="pmodal" id="modalFamily" hidden>
+    <div class="pmodal-box">
+      <button type="button" class="pmodal-close" data-close-modal aria-label="Close">×</button>
+      <h3>👪 Family Organizer</h3>
+      <p class="pmodal-lead">Manage your whole family's insurance from your single login — this is completely
+        optional, and you can switch it off any time.</p>
+      <ul class="portal-benefits">
+        <li><strong>You're in control.</strong> You don't have to do this — it just makes life easier.</li>
+        <li><strong>Track renewals.</strong> Never miss a family member's due date.</li>
+        <li><strong>Track claims.</strong> See exactly whose claim is pending and whose is completed.</li>
+        <li><strong>Share details.</strong> Forward the exact premium amount to a family member in one tap.</li>
+      </ul>
+      <button type="button" class="btn btn-primary portal-block" id="familyActivateModal">Turn on Family Mode</button>
     </div>
   </div>
 

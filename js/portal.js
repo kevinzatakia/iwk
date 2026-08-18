@@ -232,6 +232,7 @@
 
   function loadClient() {
     $('clientName').textContent = getName();
+    loadFamily();
     var pol = $('policiesList'), up = $('uploadsList');
     pol.innerHTML = ''; pol.appendChild(el('li', 'portal-empty', 'Loading…'));
     up.innerHTML = ''; up.appendChild(el('li', 'portal-empty', 'Loading…'));
@@ -270,6 +271,211 @@
       status('ok', 'Uploaded.');
       loadClient();
     }).catch(function (e2) { status('err', e2.message || 'Upload failed.'); });
+  });
+
+  // ============================================================
+  // FAMILY ORGANIZER (POC mode)
+  //   A user with dependent profiles (managed by Kevin in the Sheet) can turn on
+  //   "Family Mode" to see everyone's policies, renewals and claims in one hub.
+  //   The mode preference + banner dismissal live in localStorage (no backend
+  //   write needed); the data itself is read-only via getFamily.
+  // ============================================================
+  var family = { isFamilyPoc: false, profiles: [], policies: [], claims: [] };
+  var familyFilter = 'all'; // 'all' or a profileId
+
+  function familyModeOn() { return localStorage.getItem('portalFamilyMode') === 'on'; }
+  function setFamilyMode(on) {
+    localStorage.setItem('portalFamilyMode', on ? 'on' : 'off');
+    renderFamilyChrome();
+    if (on && family.isFamilyPoc) { familyFilter = 'all'; renderFamilyHub(); }
+  }
+
+  // ---- formatting ----
+  function inr(n) { return '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN'); }
+  function toDate(v) { if (!v) { return null; } var d = new Date(v); return isNaN(d.getTime()) ? null : d; }
+  function fmtDate(v) {
+    var d = toDate(v); if (!d) { return String(v || '—'); }
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function daysUntil(v) {
+    var d = toDate(v); if (!d) { return null; }
+    var today = new Date(); today.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
+    return Math.round((d - today) / 86400000);
+  }
+  function profileName(id) {
+    var p = family.profiles.find(function (x) { return x.profileId === id; });
+    if (p) { return p.name || p.relationship || 'Member'; }
+    return getName(); // blank/unmatched profileId → the POC themselves
+  }
+  function isClaimDone(status) { return /complete|approv|settl|paid|closed|done/i.test(status || ''); }
+
+  function loadFamily() {
+    family = { isFamilyPoc: false, profiles: [], policies: [], claims: [] };
+    gasGet({ action: 'getFamily', email: getEmail() })
+      .then(function (data) {
+        if (data && data.status === 'success') {
+          family = {
+            isFamilyPoc: !!data.isFamilyPoc,
+            profiles: data.profiles || [],
+            policies: data.policies || [],
+            claims: data.claims || []
+          };
+        }
+        renderFamilyChrome();
+        if (familyModeOn() && family.isFamilyPoc) { renderFamilyHub(); }
+      })
+      .catch(function () { renderFamilyChrome(); }); // silent: family mode is a bonus, not core
+  }
+
+  // Show/hide the banner, toggle and hub based on POC status + saved preference.
+  function renderFamilyChrome() {
+    var isPoc = family.isFamilyPoc;
+    var on = familyModeOn();
+    var dismissed = localStorage.getItem('portalFamilyBannerDismissed') === '1';
+
+    $('familyToggleRow').hidden = !isPoc;
+    $('familyModeSwitch').checked = isPoc && on;
+    $('familyOptinBanner').hidden = !(isPoc && !on && !dismissed);
+
+    var showHub = isPoc && on;
+    $('familyHub').hidden = !showHub;
+    // In family mode the structured policies replace the read-only "Your Policies"
+    // file list, but keep "My Uploads" so documents can still be shared.
+    $('policiesFolder').hidden = showHub;
+  }
+
+  function filteredPolicies() {
+    return familyFilter === 'all' ? family.policies
+      : family.policies.filter(function (p) { return p.profileId === familyFilter; });
+  }
+  function filteredClaims() {
+    return familyFilter === 'all' ? family.claims
+      : family.claims.filter(function (c) { return c.profileId === familyFilter; });
+  }
+
+  function renderFamilyHub() {
+    // Aggregate stats (always family-wide, regardless of the active filter).
+    var totalCover = family.policies.reduce(function (s, p) { return s + (Number(p.sumInsured) || 0); }, 0);
+    $('familyTotalCover').textContent = totalCover ? inr(totalCover) : '—';
+    $('familyCoverSub').textContent = family.policies.length +
+      (family.policies.length === 1 ? ' active policy' : ' active policies');
+    var openClaims = family.claims.filter(function (c) { return !isClaimDone(c.status); }).length;
+    $('familyActiveClaims').textContent = String(openClaims);
+
+    renderMemberTabs();
+    renderTimeline();
+    renderPoliciesLedger();
+    renderClaims();
+  }
+
+  function renderMemberTabs() {
+    var wrap = $('familyMemberTabs');
+    wrap.innerHTML = '';
+    var tabs = [{ id: 'all', label: 'All family' }];
+    family.profiles.forEach(function (p) {
+      var self = /^(self|me|myself|primary)$/i.test(p.relationship || '');
+      tabs.push({ id: p.profileId, label: self ? 'Me' : (p.name || p.relationship || 'Member') });
+    });
+    tabs.forEach(function (t) {
+      var b = el('button', 'portal-memtab' + (familyFilter === t.id ? ' is-active' : ''), t.label);
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.addEventListener('click', function () { familyFilter = t.id; renderFamilyHub(); });
+      wrap.appendChild(b);
+    });
+  }
+
+  function renderTimeline() {
+    var ul = $('familyTimeline');
+    ul.innerHTML = '';
+    var upcoming = filteredPolicies()
+      .filter(function (p) { return toDate(p.renewalDate); })
+      .sort(function (a, b) { return toDate(a.renewalDate) - toDate(b.renewalDate); })
+      .slice(0, 3);
+    if (!upcoming.length) { ul.appendChild(el('li', 'portal-empty', 'No upcoming renewals.')); return; }
+    upcoming.forEach(function (p) {
+      var li = el('li', 'portal-timeline-item');
+      var left = el('div', 'portal-tl-main');
+      left.appendChild(el('span', 'portal-tl-title', (p.policyType || p.insurer || 'Policy')));
+      left.appendChild(el('span', 'portal-tl-meta', profileName(p.profileId) + ' · ' + fmtDate(p.renewalDate)));
+      li.appendChild(left);
+      var days = daysUntil(p.renewalDate);
+      var pillText = days == null ? '' : (days < 0 ? 'Overdue' : (days === 0 ? 'Due today' : 'in ' + days + 'd'));
+      var pill = el('span', 'portal-tl-pill' + (days != null && days <= 14 ? ' is-soon' : ''), pillText);
+      li.appendChild(pill);
+      ul.appendChild(li);
+    });
+  }
+
+  function renderPoliciesLedger() {
+    var ul = $('familyPolicies');
+    ul.innerHTML = '';
+    var pols = filteredPolicies();
+    if (!pols.length) { ul.appendChild(el('li', 'portal-empty', 'No policies to show.')); return; }
+    pols.forEach(function (p) {
+      var li = el('li', 'portal-ledger-item');
+      var main = el('div', 'portal-ledger-main');
+      main.appendChild(el('span', 'portal-ledger-title', (p.policyType || 'Policy') + (p.insurer ? ' · ' + p.insurer : '')));
+      var metaBits = [profileName(p.profileId)];
+      if (p.sumInsured) { metaBits.push('Cover ' + inr(p.sumInsured)); }
+      if (p.renewalDate) { metaBits.push('Renews ' + fmtDate(p.renewalDate)); }
+      main.appendChild(el('span', 'portal-ledger-meta', metaBits.join(' · ')));
+      li.appendChild(main);
+
+      var right = el('div', 'portal-ledger-right');
+      if (p.premiumAmount) { right.appendChild(el('span', 'portal-ledger-amt', inr(p.premiumAmount))); }
+      var share = el('button', 'portal-share-btn', 'Share');
+      share.type = 'button';
+      share.setAttribute('aria-label', 'Share premium details');
+      share.addEventListener('click', function () { sharePremium(p); });
+      right.appendChild(share);
+      li.appendChild(right);
+      ul.appendChild(li);
+    });
+  }
+
+  // Build the pre-formatted WhatsApp message and open the share sheet.
+  function sharePremium(p) {
+    var name = profileName(p.profileId);
+    var type = p.policyType || p.insurer || 'insurance';
+    var amt = p.premiumAmount ? inr(p.premiumAmount) : 'the premium';
+    var date = p.renewalDate ? fmtDate(p.renewalDate) : 'soon';
+    var msg = 'Hi ' + name + ', your ' + type + ' renewal of ' + amt + ' is due on ' + date +
+      '. Let me know once you’ve transferred it to me so I can pay Kevin.';
+    if (navigator.share) {
+      navigator.share({ text: msg }).catch(function () { openWhatsApp(msg); });
+    } else {
+      openWhatsApp(msg);
+    }
+  }
+  function openWhatsApp(msg) { window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank', 'noopener'); }
+
+  function renderClaims() {
+    var ul = $('familyClaims');
+    ul.innerHTML = '';
+    var claims = filteredClaims();
+    if (!claims.length) { ul.appendChild(el('li', 'portal-empty', 'No claims on record.')); return; }
+    claims.forEach(function (c) {
+      var li = el('li', 'portal-claim-item');
+      var main = el('div', 'portal-claim-main');
+      main.appendChild(el('span', 'portal-claim-title', profileName(c.profileId) + ' · ' + (c.policyType || 'Policy')));
+      if (c.actionRequired) { main.appendChild(el('span', 'portal-claim-action', c.actionRequired)); }
+      if (c.lastUpdated) { main.appendChild(el('span', 'portal-claim-meta', 'Updated ' + fmtDate(c.lastUpdated))); }
+      li.appendChild(main);
+      var done = isClaimDone(c.status);
+      li.appendChild(el('span', 'portal-claim-status' + (done ? ' is-done' : ''), c.status || 'In progress'));
+      ul.appendChild(li);
+    });
+  }
+
+  // ---- family wiring ----
+  $('familyModeSwitch').addEventListener('change', function () { setFamilyMode(this.checked); });
+  $('familyActivate').addEventListener('click', function () { setFamilyMode(true); });
+  $('familyActivateModal').addEventListener('click', function () { $('modalFamily').hidden = true; setFamilyMode(true); });
+  $('familyLearnMore').addEventListener('click', function () { $('modalFamily').hidden = false; });
+  $('familyDismiss').addEventListener('click', function () {
+    localStorage.setItem('portalFamilyBannerDismissed', '1');
+    $('familyOptinBanner').hidden = true;
   });
 
   // ============================================================
