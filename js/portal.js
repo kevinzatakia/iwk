@@ -287,7 +287,7 @@
   function setFamilyMode(on) {
     localStorage.setItem('portalFamilyMode', on ? 'on' : 'off');
     renderFamilyChrome();
-    if (on && family.isFamilyPoc) { familyFilter = 'all'; renderFamilyHub(); }
+    if (on) { familyFilter = 'all'; renderFamilyHub(); }
   }
 
   // ---- formatting ----
@@ -322,26 +322,26 @@
           };
         }
         renderFamilyChrome();
-        if (familyModeOn() && family.isFamilyPoc) { renderFamilyHub(); }
+        if (familyModeOn()) { renderFamilyHub(); }
       })
       .catch(function () { renderFamilyChrome(); }); // silent: family mode is a bonus, not core
   }
 
-  // Show/hide the banner, toggle and hub based on POC status + saved preference.
+  // Show/hide the banner, toggle and hub based on the saved preference. Family
+  // Mode is available to every client now — they build their own family list via
+  // "Add family member", so we no longer gate on having existing profiles.
   function renderFamilyChrome() {
-    var isPoc = family.isFamilyPoc;
     var on = familyModeOn();
     var dismissed = localStorage.getItem('portalFamilyBannerDismissed') === '1';
 
-    $('familyToggleRow').hidden = !isPoc;
-    $('familyModeSwitch').checked = isPoc && on;
-    $('familyOptinBanner').hidden = !(isPoc && !on && !dismissed);
+    $('familyToggleRow').hidden = false;
+    $('familyModeSwitch').checked = on;
+    $('familyOptinBanner').hidden = !(!on && !dismissed);
 
-    var showHub = isPoc && on;
-    $('familyHub').hidden = !showHub;
+    $('familyHub').hidden = !on;
     // In family mode the structured policies replace the read-only "Your Policies"
     // file list, but keep "My Uploads" so documents can still be shared.
-    $('policiesFolder').hidden = showHub;
+    $('policiesFolder').hidden = on;
   }
 
   function filteredPolicies() {
@@ -362,10 +362,31 @@
     var openClaims = family.claims.filter(function (c) { return !isClaimDone(c.status); }).length;
     $('familyActiveClaims').textContent = String(openClaims);
 
+    renderMemberList();
     renderMemberTabs();
     renderTimeline();
     renderPoliciesLedger();
     renderClaims();
+  }
+
+  // The editable roster of family members inside the "Family members" card.
+  function renderMemberList() {
+    var ul = $('familyMemberList');
+    ul.innerHTML = '';
+    if (!family.profiles.length) { ul.appendChild(el('li', 'portal-empty', 'No family members yet.')); return; }
+    family.profiles.forEach(function (p) {
+      var li = el('li', 'portal-member-row');
+      var box = el('div', 'portal-member-info');
+      box.appendChild(el('span', 'portal-member-name', p.name || 'Member'));
+      if (p.relationship) { box.appendChild(el('span', 'portal-member-rel', p.relationship)); }
+      li.appendChild(box);
+      var del = el('button', 'portal-doc-del', 'Remove');
+      del.type = 'button';
+      del.setAttribute('aria-label', 'Remove ' + (p.name || 'member'));
+      del.addEventListener('click', function () { deleteMember(p, del); });
+      li.appendChild(del);
+      ul.appendChild(li);
+    });
   }
 
   function renderMemberTabs() {
@@ -466,6 +487,51 @@
       li.appendChild(el('span', 'portal-claim-status' + (done ? ' is-done' : ''), c.status || 'In progress'));
       ul.appendChild(li);
     });
+  }
+
+  // ---- add / remove family members ----
+  function showMemberForm(show) {
+    $('addMemberForm').hidden = !show;
+    $('addMemberBtn').hidden = show;
+    $('memberErr').hidden = true;
+    if (show) { $('memberName').focus(); }
+  }
+
+  $('addMemberBtn').addEventListener('click', function () { showMemberForm(true); });
+  $('memberCancelBtn').addEventListener('click', function () { $('addMemberForm').reset(); showMemberForm(false); });
+
+  $('addMemberForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('memberErr'); err.hidden = true;
+    var name = $('memberName').value.trim();
+    var rel = $('memberRelationship').value;
+    if (name.length < 2) { return fieldErr(err, 'Please enter the person\'s name.'); }
+
+    var btn = $('memberSaveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+    // Small payload → JSONP GET (like deleteDocument) so we can read the reply.
+    gasGet({ action: 'addProfile', email: getEmail(), name: name, relationship: rel })
+      .then(function (data) {
+        if (data && data.status === 'success') {
+          $('addMemberForm').reset(); showMemberForm(false);
+          status('ok', 'Added ' + name + '.');
+          loadFamily();
+        } else {
+          fieldErr(err, (data && data.message) || 'Could not add. Please try again.');
+        }
+      })
+      .catch(function (e2) { fieldErr(err, e2.message || 'Network error. Please try again.'); })
+      .then(function () { btn.disabled = false; btn.textContent = 'Save member'; });
+  });
+
+  function deleteMember(p, btn) {
+    if (!window.confirm('Remove ' + (p.name || 'this member') + ' from your family list?')) { return; }
+    btn.disabled = true; btn.textContent = 'Removing…';
+    gasGet({ action: 'deleteProfile', email: getEmail(), profileId: p.profileId })
+      .then(function (data) {
+        if (data && data.status === 'success') { status('ok', 'Removed ' + (p.name || 'member') + '.'); loadFamily(); }
+        else { status('err', (data && data.message) || 'Could not remove.'); btn.disabled = false; btn.textContent = 'Remove'; }
+      })
+      .catch(function (e2) { status('err', e2.message || 'Could not remove.'); btn.disabled = false; btn.textContent = 'Remove'; });
   }
 
   // ---- family wiring ----

@@ -157,6 +157,45 @@
 
       <!-- ===== Family hub (shown when Family Mode is on) ===== -->
       <section class="portal-familyhub" id="familyHub" hidden>
+        <div class="portal-folder" id="familyMembersCard">
+          <div class="portal-folder-head">
+            <h3>👪 Family members</h3>
+            <span class="portal-folder-sub">Add the people whose insurance you manage. Kevin then links each
+              one's policies and claims.</span>
+          </div>
+          <ul class="portal-memberlist" id="familyMemberList">
+            <li class="portal-empty">No family members yet.</li>
+          </ul>
+          <button type="button" class="btn btn-primary portal-upload-btn" id="addMemberBtn">＋ Add family member</button>
+          <form id="addMemberForm" class="portal-member-form" novalidate hidden>
+            <div class="portal-grid">
+              <div>
+                <label class="f-label" for="memberName">Name</label>
+                <input class="f" id="memberName" name="memberName" autocomplete="off" placeholder="e.g. Anjali Sharma">
+              </div>
+              <div>
+                <label class="f-label" for="memberRelationship">Relationship</label>
+                <select class="f portal-select" id="memberRelationship" name="memberRelationship">
+                  <option value="Self">Myself</option>
+                  <option value="Spouse">Spouse</option>
+                  <option value="Father">Father</option>
+                  <option value="Mother">Mother</option>
+                  <option value="Son">Son</option>
+                  <option value="Daughter">Daughter</option>
+                  <option value="Brother">Brother</option>
+                  <option value="Sister">Sister</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="portal-err" id="memberErr" hidden></div>
+            <div class="portal-member-form-actions">
+              <button type="button" class="btn btn-ghost" id="memberCancelBtn">Cancel</button>
+              <button type="submit" class="btn btn-primary" id="memberSaveBtn">Save member</button>
+            </div>
+          </form>
+        </div>
+
         <div class="portal-hub-stats">
           <div class="portal-stat portal-stat-cover">
             <span class="portal-stat-label">Total family cover</span>
