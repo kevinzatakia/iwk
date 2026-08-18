@@ -123,6 +123,7 @@
     var onAdmin = view === 'admin-dashboard-view';
     $('navAbout').hidden = !onClient;
     $('navPolicies').hidden = !onClient;
+    $('navProfile').hidden = !onClient;
     $('navLogout').hidden = !(onClient || onAdmin);
   }
 
@@ -150,16 +151,18 @@
     var first = $('regFirst').value.trim();
     var last = $('regLast').value.trim();
     var email = $('regEmail').value.trim();
+    var phone = $('regPhone').value.trim();
     var pin = $('regPin').value;
     var pin2 = $('regPin2').value;
 
     if (first.length < 1) { return fieldErr(err, 'Please enter your first name.'); }
     if (!EMAIL_RE.test(email)) { return fieldErr(err, 'Please enter a valid email address.'); }
+    if (phone && !/^[0-9]{10}$/.test(phone)) { return fieldErr(err, 'Please enter a 10-digit phone number, or leave it blank.'); }
     if (!/^[0-9]{4}$/.test(pin)) { return fieldErr(err, 'Your PIN must be exactly 4 digits.'); }
     if (pin !== pin2) { return fieldErr(err, 'The two PINs do not match.'); }
 
     var btn = $('registerBtn'); btn.disabled = true; btn.textContent = 'Creating…';
-    gasGet({ action: 'register', firstName: first, lastName: last, email: email, pin: pin })
+    gasGet({ action: 'register', firstName: first, lastName: last, email: email, phone: phone, pin: pin })
       .then(function (data) {
         if (data && data.status === 'success') {
           setSession(email, first);
@@ -232,6 +235,8 @@
 
   function loadClient() {
     $('clientName').textContent = getName();
+    closeAllPanels();
+    loadProfile();
     loadFamily();
     var pol = $('policiesList'), up = $('uploadsList');
     pol.innerHTML = ''; pol.appendChild(el('li', 'portal-empty', 'Loading…'));
@@ -323,8 +328,9 @@
         }
         renderFamilyChrome();
         if (familyModeOn()) { renderFamilyHub(); }
+        renderDashboardPanels();
       })
-      .catch(function () { renderFamilyChrome(); }); // silent: family mode is a bonus, not core
+      .catch(function () { renderFamilyChrome(); renderDashboardPanels(); }); // silent: family mode is a bonus, not core
   }
 
   // Show/hide the banner, toggle and hub based on the saved preference. Family
@@ -543,6 +549,143 @@
     localStorage.setItem('portalFamilyBannerDismissed', '1');
     $('familyOptinBanner').hidden = true;
   });
+
+  // ============================================================
+  // PROFILE + DASHBOARD PANELS (Claims / Expired Policies)
+  // ============================================================
+  var profile = { firstName: '', lastName: '', email: '', phone: '' };
+
+  function loadProfile() {
+    gasGet({ action: 'getProfile', email: getEmail() })
+      .then(function (data) {
+        if (data && data.status === 'success') {
+          profile = { firstName: data.firstName || '', lastName: data.lastName || '', email: data.email || getEmail(), phone: String(data.phone || '').trim() };
+          fillProfileModal();
+          $('phoneWarning').hidden = !!profile.phone; // nag only when we KNOW there's no phone
+        } else {
+          profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '' };
+          fillProfileModal();
+          $('phoneWarning').hidden = true;
+        }
+      })
+      .catch(function () {
+        profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '' };
+        fillProfileModal();
+        $('phoneWarning').hidden = true;
+      });
+  }
+
+  function fillProfileModal() {
+    $('profileName').textContent = ((profile.firstName || '') + ' ' + (profile.lastName || '')).trim() || getName();
+    $('profileEmail').textContent = profile.email || getEmail();
+    $('profilePhone').value = profile.phone || '';
+  }
+
+  function openProfile() { fillProfileModal(); $('profileErr').hidden = true; $('modalProfile').hidden = false; }
+
+  $('navProfile').addEventListener('click', function () { closeDrawer(); openProfile(); });
+  $('phoneWarning').addEventListener('click', openProfile);
+
+  $('profileForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('profileErr'); err.hidden = true;
+    var phone = $('profilePhone').value.trim();
+    if (phone && !/^[0-9]{10}$/.test(phone)) { return fieldErr(err, 'Please enter a valid 10-digit phone number.'); }
+
+    var btn = $('profileSaveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+    gasGet({ action: 'updateProfile', email: getEmail(), phone: phone })
+      .then(function (data) {
+        if (data && data.status === 'success') {
+          profile.phone = String(data.phone || phone).trim();
+          fillProfileModal();
+          $('phoneWarning').hidden = !!profile.phone;
+          status('ok', 'Profile updated.');
+          $('modalProfile').hidden = true;
+        } else {
+          fieldErr(err, (data && data.message) || 'Could not save. Please try again.');
+        }
+      })
+      .catch(function (e2) { fieldErr(err, e2.message || 'Network error. Please try again.'); })
+      .then(function () { btn.disabled = false; btn.textContent = 'Save profile'; });
+  });
+
+  // ---- expandable dashboard panels (mutually exclusive) ----
+  var activeDashboardPanel = null; // 'claims' | 'expired' | null
+
+  function closeAllPanels() {
+    activeDashboardPanel = null;
+    ['claims', 'expired'].forEach(function (n) {
+      $(n + 'Panel').hidden = true;
+      var t = $(n + 'Toggle'); t.classList.remove('is-open'); t.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function togglePanel(name) {
+    if (activeDashboardPanel === name) { closeAllPanels(); return; }
+    closeAllPanels();
+    activeDashboardPanel = name;
+    $(name + 'Panel').hidden = false;
+    var t = $(name + 'Toggle'); t.classList.add('is-open'); t.setAttribute('aria-expanded', 'true');
+  }
+
+  // Populate both panels from the current family data (re-run whenever it loads).
+  function renderDashboardPanels() { renderClaimsPanel(); renderExpiredPanel(); }
+
+  function renderClaimsPanel() {
+    var ul = $('claimsPanelList');
+    ul.innerHTML = '';
+    var claims = family.claims || [];
+    if (!claims.length) { ul.appendChild(el('li', 'portal-empty', 'No active or past claims found.')); return; }
+    claims.forEach(function (c) {
+      var li = el('li', 'portal-claim-item');
+      var main = el('div', 'portal-claim-main');
+      main.appendChild(el('span', 'portal-claim-title', profileName(c.profileId) + ' · ' + (c.policyType || 'Policy')));
+      if (c.actionRequired) { main.appendChild(el('span', 'portal-claim-action', c.actionRequired)); }
+      if (c.lastUpdated) { main.appendChild(el('span', 'portal-claim-meta', 'Updated ' + fmtDate(c.lastUpdated))); }
+      li.appendChild(main);
+      var done = isClaimDone(c.status);
+      li.appendChild(el('span', 'portal-claim-status' + (done ? ' is-done' : ''), c.status || 'In progress'));
+      ul.appendChild(li);
+    });
+  }
+
+  function renderExpiredPanel() {
+    var ul = $('expiredPanelList');
+    ul.innerHTML = '';
+    var todayMs = new Date().setHours(0, 0, 0, 0);
+    var expired = (family.policies || []).filter(function (p) {
+      var d = toDate(p.renewalDate); return d && d.setHours(0, 0, 0, 0) < todayMs;
+    });
+    if (!expired.length) { ul.appendChild(el('li', 'portal-empty', 'No expired policies — you\'re all up to date.')); return; }
+    expired.forEach(function (p) {
+      var li = el('li', 'portal-expired-item');
+      var main = el('div', 'portal-ledger-main');
+      main.appendChild(el('span', 'portal-ledger-title', (p.policyType || 'Policy') + (p.insurer ? ' · ' + p.insurer : '')));
+      var bits = [profileName(p.profileId)];
+      if (p.premiumAmount) { bits.push('Premium ' + inr(p.premiumAmount)); }
+      bits.push('Expired ' + fmtDate(p.renewalDate));
+      main.appendChild(el('span', 'portal-ledger-meta', bits.join(' · ')));
+      li.appendChild(main);
+      var cta = el('a', 'portal-revive-btn', 'Message Kevin to Revive');
+      cta.href = reviveWhatsAppUrl(p); cta.target = '_blank'; cta.rel = 'noopener';
+      li.appendChild(cta);
+      ul.appendChild(li);
+    });
+  }
+
+  function reviveWhatsAppUrl(p) {
+    var name = profileName(p.profileId);
+    var type = p.policyType || p.insurer || 'policy';
+    var when = p.renewalDate ? fmtDate(p.renewalDate) : '';
+    var msg = 'Hi Kevin, I’d like to revive the ' + type + ' policy for ' + name +
+      (when ? ' that expired on ' + when : '') + '. Please help me renew it.';
+    return 'https://wa.me/918369988285?text=' + encodeURIComponent(msg);
+  }
+
+  $('claimsToggle').addEventListener('click', function () { togglePanel('claims'); });
+  $('expiredToggle').addEventListener('click', function () { togglePanel('expired'); });
+  $('claimsPanelClose').addEventListener('click', closeAllPanels);
+  $('expiredPanelClose').addEventListener('click', closeAllPanels);
 
   // ============================================================
   // ADMIN DASHBOARD
@@ -771,6 +914,10 @@
   // Digits-only for PIN fields.
   ['regPin', 'regPin2', 'logPin'].forEach(function (id) {
     $(id).addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 4); });
+  });
+  // Digits-only (max 10) for phone fields.
+  ['regPhone', 'profilePhone'].forEach(function (id) {
+    $(id).addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 10); });
   });
 
   // Go.

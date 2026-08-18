@@ -47,8 +47,9 @@
       <button type="button" class="portal-drawer-close" id="menuClose" aria-label="Close menu">×</button>
     </div>
     <nav class="portal-drawer-links">
-      <button type="button" id="navLogout" class="portal-navbtn portal-logout" hidden>Log out</button>
+      <button type="button" id="navProfile" class="portal-navbtn" hidden>👤 Profile</button>
       <a class="portal-navbtn" href="index.html">← Main site</a>
+      <button type="button" id="navLogout" class="portal-navbtn portal-logout" hidden>Log out</button>
     </nav>
   </aside>
 
@@ -87,6 +88,9 @@
           </div>
           <label class="f-label" for="regEmail">Email address</label>
           <input class="f" id="regEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com">
+          <label class="f-label" for="regPhone">Phone number <span class="f-optional">(recommended)</span></label>
+          <input class="f" id="regPhone" name="phone" type="tel" inputmode="numeric" maxlength="10"
+            autocomplete="tel" placeholder="10-digit mobile number">
           <div class="portal-grid">
             <div>
               <label class="f-label" for="regPin">4-digit PIN</label>
@@ -131,6 +135,46 @@
       <div class="portal-welcome">
         <h2>Hi <span id="clientName">there</span> 👋</h2>
         <p>Here are your policies and documents.</p>
+      </div>
+
+      <!-- Missing-phone warning (shown after login when no phone is on file) -->
+      <button type="button" class="portal-warning" id="phoneWarning" hidden>
+        ⚠️ Please update your Profile with a valid phone number for seamless communication regarding your renewals
+        and claims.
+      </button>
+
+      <!-- Quick dashboard panels: Claims + Expired Policies -->
+      <div class="portal-dashpanels">
+        <div class="portal-dash-btns">
+          <button type="button" class="portal-dash-btn" id="claimsToggle" aria-expanded="false" aria-controls="claimsPanel">
+            <span class="portal-dash-btn-ico">🩺</span>
+            <span class="portal-dash-btn-txt">Claims<span class="portal-dash-btn-sub">Track reimbursements</span></span>
+          </button>
+          <button type="button" class="portal-dash-btn" id="expiredToggle" aria-expanded="false" aria-controls="expiredPanel">
+            <span class="portal-dash-btn-ico">⌛</span>
+            <span class="portal-dash-btn-txt">Expired Policies<span class="portal-dash-btn-sub">Lapsed &amp; needs renewal</span></span>
+          </button>
+        </div>
+
+        <div class="portal-panel" id="claimsPanel" hidden>
+          <div class="portal-panel-head">
+            <h3>🩺 Claims</h3>
+            <button type="button" class="portal-panel-close" id="claimsPanelClose" aria-label="Close claims panel">×</button>
+          </div>
+          <ul class="portal-claims" id="claimsPanelList">
+            <li class="portal-empty">No active or past claims found.</li>
+          </ul>
+        </div>
+
+        <div class="portal-panel" id="expiredPanel" hidden>
+          <div class="portal-panel-head">
+            <h3>⌛ Expired Policies</h3>
+            <button type="button" class="portal-panel-close" id="expiredPanelClose" aria-label="Close expired policies panel">×</button>
+          </div>
+          <ul class="portal-expired" id="expiredPanelList">
+            <li class="portal-empty">No expired policies — you're all up to date.</li>
+          </ul>
+        </div>
       </div>
 
       <!-- Family Organizer opt-in (only for POCs, when Family Mode is off) -->
@@ -346,6 +390,28 @@
       <p>Kevin Zatakia is an independent, IRDAI-licensed insurance advisor with 7+ years of experience helping families
         compare, choose and claim across every major insurer — no jargon, no pressure.</p>
       <p>This portal is a private space for Kevin's clients to keep their policies and documents in one place.</p>
+    </div>
+  </div>
+
+  <div class="pmodal" id="modalProfile" hidden>
+    <div class="pmodal-box">
+      <button type="button" class="pmodal-close" data-close-modal aria-label="Close">×</button>
+      <h3>👤 Your Profile</h3>
+      <div class="portal-profile-field">
+        <span class="portal-profile-label">Name</span>
+        <span class="portal-profile-value" id="profileName">—</span>
+      </div>
+      <div class="portal-profile-field">
+        <span class="portal-profile-label">Email</span>
+        <span class="portal-profile-value" id="profileEmail">—</span>
+      </div>
+      <form id="profileForm" novalidate>
+        <label class="f-label" for="profilePhone">Phone number</label>
+        <input class="f" id="profilePhone" name="phone" type="tel" inputmode="numeric" maxlength="10"
+          autocomplete="tel" placeholder="10-digit mobile number">
+        <div class="portal-err" id="profileErr" hidden></div>
+        <button type="submit" class="btn btn-primary portal-block" id="profileSaveBtn">Save profile</button>
+      </form>
     </div>
   </div>
 
