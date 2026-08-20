@@ -122,7 +122,6 @@
     var onClient = view === 'client-dashboard-view';
     var onAdmin = view === 'admin-dashboard-view';
     $('navAbout').hidden = !onClient;
-    $('navPolicies').hidden = !onClient;
     $('navProfile').hidden = !onClient;
     $('notifBell').hidden = !onClient;
     if (!onClient) { $('notifCenter').hidden = true; }
@@ -1156,7 +1155,6 @@
 
   $('navLogout').addEventListener('click', function () { closeDrawer(); stopNotifPolling(); clearSession(); showView('home-view'); });
   $('navAbout').addEventListener('click', function () { $('modalAbout').hidden = false; });
-  $('navPolicies').addEventListener('click', function () { $('modalPolicies').hidden = false; });
   document.querySelectorAll('[data-close-modal]').forEach(function (b) {
     b.addEventListener('click', function () { b.closest('.pmodal').hidden = true; });
   });
