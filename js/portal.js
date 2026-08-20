@@ -124,6 +124,8 @@
     $('navAbout').hidden = !onClient;
     $('navPolicies').hidden = !onClient;
     $('navProfile').hidden = !onClient;
+    $('notifBell').hidden = !onClient;
+    if (!onClient) { $('notifCenter').hidden = true; }
     $('navLogout').hidden = !(onClient || onAdmin);
   }
 
@@ -238,6 +240,9 @@
     closeAllPanels();
     loadProfile();
     loadFamily();
+    loadNotifications();
+    startNotifPolling();
+    maybeShowPushOptin();
     var pol = $('policiesList'), up = $('uploadsList');
     pol.innerHTML = ''; pol.appendChild(el('li', 'portal-empty', 'Loading…'));
     up.innerHTML = ''; up.appendChild(el('li', 'portal-empty', 'Loading…'));
@@ -687,6 +692,176 @@
   $('claimsPanelClose').addEventListener('click', closeAllPanels);
   $('expiredPanelClose').addEventListener('click', closeAllPanels);
 
+  // Scroll a just-opened panel into view.
+  function scrollToPanel(name) {
+    togglePanel(name);
+    var p = $(name + 'Panel');
+    if (p && !p.hidden) { p.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  }
+
+  // ============================================================
+  // NOTIFICATIONS (in-app centre + OS notifications while open)
+  // ============================================================
+  var notifications = [];
+  var notifTimer = null;
+  var NOTIF_POLL_MS = 90000;
+
+  function loadNotifications() {
+    gasGet({ action: 'getNotifications', email: getEmail() })
+      .then(function (data) {
+        if (data && data.status === 'success') {
+          notifications = data.notifications || [];
+          renderNotifBadge(data.unread || 0);
+          renderNotifList();
+          maybeOsNotify();
+        }
+      })
+      .catch(function () { /* silent — notifications are non-critical */ });
+  }
+
+  function startNotifPolling() {
+    if (notifTimer) { clearInterval(notifTimer); }
+    notifTimer = setInterval(function () {
+      if (getEmail() && !isAdmin(getEmail())) { loadNotifications(); }
+    }, NOTIF_POLL_MS);
+  }
+  function stopNotifPolling() { if (notifTimer) { clearInterval(notifTimer); notifTimer = null; } }
+
+  function renderNotifBadge(unread) {
+    var badge = $('notifBadge');
+    if (unread > 0) { badge.hidden = false; badge.textContent = unread > 9 ? '9+' : String(unread); }
+    else { badge.hidden = true; badge.textContent = ''; }
+  }
+
+  function timeAgo(iso) {
+    var d = new Date(iso); if (isNaN(d.getTime())) { return ''; }
+    var mins = Math.round((Date.now() - d.getTime()) / 60000);
+    if (mins < 1) { return 'just now'; }
+    if (mins < 60) { return mins + 'm ago'; }
+    var hrs = Math.round(mins / 60); if (hrs < 24) { return hrs + 'h ago'; }
+    var days = Math.round(hrs / 24); if (days < 7) { return days + 'd ago'; }
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  }
+
+  function renderNotifList() {
+    var ul = $('notifList');
+    ul.innerHTML = '';
+    if (!notifications.length) { ul.appendChild(el('li', 'portal-empty', 'No notifications yet.')); return; }
+    notifications.forEach(function (n) {
+      var li = el('li', 'portal-notif-item' + (n.isRead ? '' : ' is-unread'));
+      li.setAttribute('role', 'button'); li.tabIndex = 0;
+      var body = el('div', 'portal-notif-body');
+      body.appendChild(el('span', 'portal-notif-itemtitle', n.title || 'Notification'));
+      body.appendChild(el('span', 'portal-notif-msg', n.message || ''));
+      body.appendChild(el('span', 'portal-notif-time', timeAgo(n.createdAt)));
+      li.appendChild(body);
+      if (!n.isRead) { li.appendChild(el('span', 'portal-notif-dot')); }
+      li.addEventListener('click', function () { onNotifClick(n); });
+      li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNotifClick(n); } });
+      ul.appendChild(li);
+    });
+  }
+
+  function onNotifClick(n) {
+    if (!n.isRead) {
+      n.isRead = true;
+      renderNotifBadge(notifications.filter(function (x) { return !x.isRead; }).length);
+      renderNotifList();
+      gasGet({ action: 'markNotificationRead', email: getEmail(), notificationId: n.notificationId }).catch(function () {});
+    }
+    closeNotifCenter();
+    routeNotification(n);
+  }
+
+  function routeNotification(n) {
+    if (n.relatedType === 'claim') { scrollToPanel('claims'); }
+    else if (n.relatedType === 'renewal') { scrollToPanel('expired'); }
+  }
+
+  function openNotifCenter() {
+    $('notifCenter').hidden = false;
+    $('notifBell').setAttribute('aria-expanded', 'true');
+  }
+  function closeNotifCenter() {
+    $('notifCenter').hidden = true;
+    $('notifBell').setAttribute('aria-expanded', 'false');
+  }
+
+  $('notifBell').addEventListener('click', function (e) {
+    e.stopPropagation();
+    if ($('notifCenter').hidden) { openNotifCenter(); } else { closeNotifCenter(); }
+  });
+  // Close when clicking outside the centre or bell.
+  document.addEventListener('click', function (e) {
+    if ($('notifCenter').hidden) { return; }
+    if (!$('notifCenter').contains(e.target) && e.target !== $('notifBell') && !$('notifBell').contains(e.target)) { closeNotifCenter(); }
+  });
+
+  $('notifMarkAll').addEventListener('click', function () {
+    notifications.forEach(function (n) { n.isRead = true; });
+    renderNotifBadge(0); renderNotifList();
+    gasGet({ action: 'markAllNotificationsRead', email: getEmail() }).catch(function () {});
+  });
+
+  // ---- OS notifications (local; fired for genuinely new items while open) ----
+  function shownIds() { try { return JSON.parse(localStorage.getItem('notifShownIds') || '[]'); } catch (e) { return []; } }
+  function saveShownIds(ids) { localStorage.setItem('notifShownIds', JSON.stringify(ids.slice(-100))); }
+
+  function maybeOsNotify() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') { return; }
+    var seen = shownIds();
+    var fresh = notifications.filter(function (n) { return !n.isRead && seen.indexOf(n.notificationId) < 0; });
+    // First ever run: baseline (don't replay old alerts as OS pop-ups).
+    if (localStorage.getItem('notifShownInit') !== '1') {
+      localStorage.setItem('notifShownInit', '1');
+      saveShownIds(seen.concat(notifications.map(function (n) { return n.notificationId; })));
+      return;
+    }
+    if (!fresh.length || !navigator.serviceWorker) { return; }
+    navigator.serviceWorker.ready.then(function (reg) {
+      fresh.slice(0, 3).forEach(function (n) {
+        reg.showNotification(n.title || 'Insure It With Kevin', {
+          body: n.message || '', icon: '/icons/icon-192.png', badge: '/icons/icon-192.png',
+          tag: n.notificationId, data: { url: '/portal.html#' + (n.relatedType || '') }
+        });
+      });
+    }).catch(function () {});
+    saveShownIds(seen.concat(fresh.map(function (n) { return n.notificationId; })));
+  }
+
+  // SW tells us an OS notification was tapped → route to the right panel.
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'notification-click') {
+        var url = e.data.url || '';
+        if (url.indexOf('claim') >= 0) { scrollToPanel('claims'); }
+        else if (url.indexOf('renewal') >= 0 || url.indexOf('expired') >= 0) { scrollToPanel('expired'); }
+      }
+    });
+  }
+
+  // ---- push opt-in (2nd+ visit, permission still undecided) ----
+  function maybeShowPushOptin() {
+    if (!('Notification' in window)) { return; }
+    var visits = (parseInt(localStorage.getItem('portalVisitCount'), 10) || 0) + 1;
+    localStorage.setItem('portalVisitCount', String(visits));
+    var show = visits >= 2 && Notification.permission === 'default' && localStorage.getItem('pushOptinDismissed') !== '1';
+    $('pushOptin').hidden = !show;
+  }
+
+  $('pushEnable').addEventListener('click', function () {
+    $('pushOptin').hidden = true;
+    if (!('Notification' in window)) { return; }
+    Notification.requestPermission().then(function (perm) {
+      if (perm === 'granted') { status('ok', 'Notifications enabled — we\'ll alert you about renewals and claims.'); }
+      else if (perm === 'denied') { status('err', 'Notifications are blocked. You can re-enable them in your browser settings.'); }
+    });
+  });
+  $('pushDismiss').addEventListener('click', function () {
+    localStorage.setItem('pushOptinDismissed', '1');
+    $('pushOptin').hidden = true;
+  });
+
   // ============================================================
   // ADMIN DASHBOARD
   // ============================================================
@@ -899,9 +1074,9 @@
   menuToggle.addEventListener('click', openDrawer);
   overlay.addEventListener('click', closeDrawer);
   $('menuClose').addEventListener('click', closeDrawer);
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDrawer(); } });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDrawer(); closeNotifCenter(); } });
 
-  $('navLogout').addEventListener('click', function () { closeDrawer(); clearSession(); showView('home-view'); });
+  $('navLogout').addEventListener('click', function () { closeDrawer(); stopNotifPolling(); clearSession(); showView('home-view'); });
   $('navAbout').addEventListener('click', function () { $('modalAbout').hidden = false; });
   $('navPolicies').addEventListener('click', function () { $('modalPolicies').hidden = false; });
   document.querySelectorAll('[data-close-modal]').forEach(function (b) {

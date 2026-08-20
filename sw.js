@@ -25,3 +25,39 @@ self.addEventListener('fetch', (event) => {
   // criteria. It never intercepts, caches, or re-fetches requests — so it can't
   // trigger any CSP/offline crash.
 });
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+// The portal shows OS notifications itself (via registration.showNotification)
+// for new in-app alerts while the app is open or backgrounded. This `push` handler
+// is here so the worker is ready for a real server-side Web Push sender later — it
+// stays dormant until a push subscription + sender exist.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { message: event.data && event.data.text() }; }
+  const title = data.title || 'Insure It With Kevin';
+  const options = {
+    body: data.message || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: data.tag || undefined,
+    data: { url: data.url || '/portal.html' }
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Tapping a notification focuses an open portal tab (or opens one) and routes it.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/portal.html';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const c of clients) {
+        if (c.url.indexOf('/portal.html') !== -1 && 'focus' in c) {
+          c.postMessage({ type: 'notification-click', url: target });
+          return c.focus();
+        }
+      }
+      if (self.clients.openWindow) { return self.clients.openWindow(target); }
+    })
+  );
+});

@@ -31,11 +31,27 @@
         <button type="button" id="installAppBtn" class="portal-install" hidden>⬇ Install app</button>
         <button type="button" id="navAbout" class="portal-navbtn" hidden>About</button>
         <button type="button" id="navPolicies" class="portal-navbtn" hidden>Our Policies</button>
+        <button type="button" id="notifBell" class="portal-bell" hidden aria-label="Notifications"
+          aria-expanded="false" aria-controls="notifCenter">
+          <span aria-hidden="true">🔔</span>
+          <span class="portal-bell-badge" id="notifBadge" hidden></span>
+        </button>
         <button type="button" id="menuToggle" class="portal-hamburger" aria-label="Open menu"
           aria-expanded="false" aria-controls="portalDrawer">
           <span></span><span></span><span></span>
         </button>
       </nav>
+    </div>
+
+    <!-- Notification Center (dropdown toggled by the bell) -->
+    <div class="portal-notifcenter" id="notifCenter" hidden>
+      <div class="portal-notif-head">
+        <span class="portal-notif-title">Notifications</span>
+        <button type="button" class="linkbtn portal-notif-markall" id="notifMarkAll">Mark all as read</button>
+      </div>
+      <ul class="portal-notif-list" id="notifList">
+        <li class="portal-empty">No notifications yet.</li>
+      </ul>
     </div>
   </header>
 
@@ -142,6 +158,18 @@
         ⚠️ Please update your Profile with a valid phone number for seamless communication regarding your renewals
         and claims.
       </button>
+
+      <!-- Push opt-in (shown from the 2nd login when permission not yet decided) -->
+      <div class="portal-optin portal-pushoptin" id="pushOptin" hidden>
+        <div class="portal-optin-text">
+          <strong>🔔 Enable notifications</strong>
+          <span>Get instant updates on your claims and upcoming renewals — even when a page isn't open.</span>
+        </div>
+        <div class="portal-optin-actions">
+          <button type="button" class="btn btn-primary" id="pushEnable">Enable</button>
+        </div>
+        <button type="button" class="portal-optin-dismiss" id="pushDismiss" aria-label="Dismiss">×</button>
+      </div>
 
       <!-- Quick dashboard panels: Claims + Expired Policies -->
       <div class="portal-dashpanels">
