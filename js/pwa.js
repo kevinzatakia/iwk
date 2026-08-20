@@ -3,11 +3,28 @@
    - Phase 2: registers the no-op service worker (kill switch + install criteria).
    - Phase 3: reveals the header "Install app" button when the browser offers it. */
 (function () {
-  // ---- Phase 2: register the safe service worker ----
+  // ---- Phase 2: register the service worker + seamless auto-update ----
   if ('serviceWorker' in navigator) {
+    // If this page is already controlled by a worker, a later controllerchange
+    // means a NEW version took over → reload once so open/installed apps show the
+    // latest build automatically. We skip this on the very first install (no
+    // prior controller) to avoid an unnecessary reload.
+    var hadController = !!navigator.serviceWorker.controller;
+    var reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController || reloading) { return; }
+      reloading = true;
+      window.location.reload();
+    });
+
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('/sw.js').then(function (reg) {
-        console.log('Safe PWA worker registered.', reg.scope);
+        // Check for a new sw.js now, and again each time the app is brought back
+        // to the foreground (installed apps can stay open for days).
+        reg.update();
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') { reg.update(); }
+        });
       }).catch(function (err) {
         console.log('SW registration failed:', err);
       });

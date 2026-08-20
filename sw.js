@@ -1,29 +1,45 @@
-// sw.js — DUMMY / NO-OP WORKER (no caching, no CSP violations)
+// sw.js — Seamless-update worker (network-fresh, NO same-origin caching; CSP-safe)
 //
-// This intentionally does NOT cache anything. The previous caching worker's
-// fetch() calls were blocked by the site's strict Content-Security-Policy
-// (connect-src only allows the Apps Script backend), which broke asset loading.
-// This worker exists purely to (a) act as a kill switch that unregisters/clears
-// the old broken caches, and (b) satisfy the browser's PWA install criteria.
+// The site's strict Content-Security-Policy (connect-src has no 'self', default-src
+// 'none') blocks the service worker from fetch()-ing same-origin assets — that is
+// what broke the previous caching worker. So this worker deliberately does NOT
+// cache app files. Freshness instead comes from the network plus the
+// `Cache-Control: no-cache, must-revalidate` headers on HTML/CSS/JS. What this
+// worker provides for seamless updates:
+//   • a versioned identity (CACHE_NAME) the developer bumps to publish an update,
+//   • immediate takeover on install (skipWaiting) + control of open pages (claim),
+//   • purging of any legacy caches left behind by older workers,
+//   • push / notification handling (further below).
+// The page (js/pwa.js) listens for the new worker taking control and reloads once,
+// so already-installed home-screen apps jump to the latest version automatically —
+// no manual uninstall/reinstall.
+//
+// ── TO PUBLISH AN UPDATE: bump CACHE_NAME (e.g. v2 → v3), commit, deploy. ────────
+// The byte change makes every device detect the new worker, which then activates
+// immediately, purges old caches, and triggers the one-time reload in pwa.js.
+
+const CACHE_NAME = 'kevin-app-v3';
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Activate immediately, replacing any old worker.
+  self.skipWaiting(); // Activate immediately — bypass the "waiting" phase.
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    // Kill switch: delete every cache left behind by the previous broken worker.
-    caches.keys().then((cacheNames) => {
-      return Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
-    }).then(() => self.clients.claim())
+    // Purge every cache that isn't the current version (kills legacy caches left
+    // by any older cache-first worker), then take control of open pages now.
+    caches.keys()
+      .then((names) => Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n))))
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // DO NOTHING.
-  // This empty fetch listener exists purely to satisfy the browser's PWA install
-  // criteria. It never intercepts, caches, or re-fetches requests — so it can't
-  // trigger any CSP/offline crash.
+  // Intentional NO-OP passthrough: we never call event.respondWith() or fetch()
+  // here, so the browser fetches each resource itself (governed by
+  // script-src/style-src/img-src, which allow 'self') and always gets the live
+  // network version — nothing is cached. Calling fetch() here would be blocked by
+  // connect-src (no 'self'); that is exactly what broke the old caching worker.
 });
 
 // ── Notifications ─────────────────────────────────────────────────────────────
