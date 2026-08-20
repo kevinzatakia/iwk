@@ -20,10 +20,12 @@
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('/sw.js').then(function (reg) {
         // Check for a new sw.js now, and again each time the app is brought back
-        // to the foreground (installed apps can stay open for days).
-        reg.update();
+        // to the foreground (installed apps can stay open for days). A transient
+        // network failure of the update check is harmless — swallow it so it
+        // doesn't surface as an uncaught promise rejection.
+        reg.update().catch(function () {});
         document.addEventListener('visibilitychange', function () {
-          if (document.visibilityState === 'visible') { reg.update(); }
+          if (document.visibilityState === 'visible') { reg.update().catch(function () {}); }
         });
       }).catch(function (err) {
         console.log('SW registration failed:', err);

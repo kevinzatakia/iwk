@@ -104,9 +104,9 @@
           </div>
           <label class="f-label" for="regEmail">Email address</label>
           <input class="f" id="regEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com">
-          <label class="f-label" for="regPhone">Phone number <span class="f-optional">(recommended)</span></label>
+          <label class="f-label" for="regPhone">Phone number</label>
           <input class="f" id="regPhone" name="phone" type="tel" inputmode="numeric" maxlength="10"
-            autocomplete="tel" placeholder="10-digit mobile number">
+            autocomplete="tel" placeholder="10-digit mobile number" required>
           <div class="portal-grid">
             <div>
               <label class="f-label" for="regPin">4-digit PIN</label>
@@ -169,40 +169,6 @@
           <button type="button" class="btn btn-primary" id="pushEnable">Enable</button>
         </div>
         <button type="button" class="portal-optin-dismiss" id="pushDismiss" aria-label="Dismiss">×</button>
-      </div>
-
-      <!-- Quick dashboard panels: Claims + Expired Policies -->
-      <div class="portal-dashpanels">
-        <div class="portal-dash-btns">
-          <button type="button" class="portal-dash-btn" id="claimsToggle" aria-expanded="false" aria-controls="claimsPanel">
-            <span class="portal-dash-btn-ico">🩺</span>
-            <span class="portal-dash-btn-txt">Claims<span class="portal-dash-btn-sub">Track reimbursements</span></span>
-          </button>
-          <button type="button" class="portal-dash-btn" id="expiredToggle" aria-expanded="false" aria-controls="expiredPanel">
-            <span class="portal-dash-btn-ico">⌛</span>
-            <span class="portal-dash-btn-txt">Expired Policies<span class="portal-dash-btn-sub">Lapsed &amp; needs renewal</span></span>
-          </button>
-        </div>
-
-        <div class="portal-panel" id="claimsPanel" hidden>
-          <div class="portal-panel-head">
-            <h3>🩺 Claims</h3>
-            <button type="button" class="portal-panel-close" id="claimsPanelClose" aria-label="Close claims panel">×</button>
-          </div>
-          <ul class="portal-claims" id="claimsPanelList">
-            <li class="portal-empty">No active or past claims found.</li>
-          </ul>
-        </div>
-
-        <div class="portal-panel" id="expiredPanel" hidden>
-          <div class="portal-panel-head">
-            <h3>⌛ Expired Policies</h3>
-            <button type="button" class="portal-panel-close" id="expiredPanelClose" aria-label="Close expired policies panel">×</button>
-          </div>
-          <ul class="portal-expired" id="expiredPanelList">
-            <li class="portal-empty">No expired policies — you're all up to date.</li>
-          </ul>
-        </div>
       </div>
 
       <!-- Family Organizer opt-in (only for POCs, when Family Mode is off) -->
@@ -338,6 +304,40 @@
           <div class="portal-folder-note">PDF, JPG or PNG · up to 5&nbsp;MB</div>
         </div>
       </div>
+
+      <!-- Quick dashboard panels: Claims + Expired Policies (kept at the bottom) -->
+      <div class="portal-dashpanels">
+        <div class="portal-dash-btns">
+          <button type="button" class="portal-dash-btn" id="claimsToggle" aria-expanded="false" aria-controls="claimsPanel">
+            <span class="portal-dash-btn-ico">🩺</span>
+            <span class="portal-dash-btn-txt">Claims<span class="portal-dash-btn-sub">Track reimbursements</span></span>
+          </button>
+          <button type="button" class="portal-dash-btn" id="expiredToggle" aria-expanded="false" aria-controls="expiredPanel">
+            <span class="portal-dash-btn-ico">⌛</span>
+            <span class="portal-dash-btn-txt">Expired Policies<span class="portal-dash-btn-sub">Lapsed &amp; needs renewal</span></span>
+          </button>
+        </div>
+
+        <div class="portal-panel" id="claimsPanel" hidden>
+          <div class="portal-panel-head">
+            <h3>🩺 Claims</h3>
+            <button type="button" class="portal-panel-close" id="claimsPanelClose" aria-label="Close claims panel">×</button>
+          </div>
+          <ul class="portal-claims" id="claimsPanelList">
+            <li class="portal-empty">No active or past claims found.</li>
+          </ul>
+        </div>
+
+        <div class="portal-panel" id="expiredPanel" hidden>
+          <div class="portal-panel-head">
+            <h3>⌛ Expired Policies</h3>
+            <button type="button" class="portal-panel-close" id="expiredPanelClose" aria-label="Close expired policies panel">×</button>
+          </div>
+          <ul class="portal-expired" id="expiredPanelList">
+            <li class="portal-empty">No expired policies — you're all up to date.</li>
+          </ul>
+        </div>
+      </div>
     </section>
 
     <!-- ============ VIEW 5: ADMIN DASHBOARD ============ -->
@@ -425,6 +425,8 @@
     <div class="pmodal-box">
       <button type="button" class="pmodal-close" data-close-modal aria-label="Close">×</button>
       <h3>👤 Your Profile</h3>
+      <p class="portal-profile-note" id="profileNote" hidden>Adding your phone number helps us send you timely
+        WhatsApp reminders for renewals and instant claim status updates.</p>
       <div class="portal-profile-field">
         <span class="portal-profile-label">Name</span>
         <span class="portal-profile-value" id="profileName">—</span>

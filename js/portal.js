@@ -159,7 +159,7 @@
 
     if (first.length < 1) { return fieldErr(err, 'Please enter your first name.'); }
     if (!EMAIL_RE.test(email)) { return fieldErr(err, 'Please enter a valid email address.'); }
-    if (phone && !/^[0-9]{10}$/.test(phone)) { return fieldErr(err, 'Please enter a 10-digit phone number, or leave it blank.'); }
+    if (!/^[0-9]{10}$/.test(phone)) { return fieldErr(err, 'Please enter your 10-digit phone number.'); }
     if (!/^[0-9]{4}$/.test(pin)) { return fieldErr(err, 'Your PIN must be exactly 4 digits.'); }
     if (pin !== pin2) { return fieldErr(err, 'The two PINs do not match.'); }
 
@@ -567,6 +567,7 @@
           profile = { firstName: data.firstName || '', lastName: data.lastName || '', email: data.email || getEmail(), phone: String(data.phone || '').trim() };
           fillProfileModal();
           $('phoneWarning').hidden = !!profile.phone; // nag only when we KNOW there's no phone
+          maybeNudgePhone();
         } else {
           profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '' };
           fillProfileModal();
@@ -586,7 +587,20 @@
     $('profilePhone').value = profile.phone || '';
   }
 
-  function openProfile() { fillProfileModal(); $('profileErr').hidden = true; $('modalProfile').hidden = false; }
+  function openProfile() {
+    fillProfileModal();
+    $('profileErr').hidden = true;
+    $('profileNote').hidden = !!profile.phone; // educational copy shown when no phone yet
+    $('modalProfile').hidden = false;
+  }
+
+  // Progressive nudge: if the account has no phone, auto-open the Profile overlay
+  // once per session (dismissible via its × — never blocks using the app).
+  function maybeNudgePhone() {
+    if (profile.phone || sessionStorage.getItem('phoneNudged') === '1') { return; }
+    sessionStorage.setItem('phoneNudged', '1');
+    openProfile();
+  }
 
   $('navProfile').addEventListener('click', function () { closeDrawer(); openProfile(); });
   $('phoneWarning').addEventListener('click', openProfile);
@@ -650,7 +664,71 @@
       li.appendChild(main);
       var done = isClaimDone(c.status);
       li.appendChild(el('span', 'portal-claim-status' + (done ? ' is-done' : ''), c.status || 'In progress'));
+      // Documents-pending claims get an inline multi-file upload (iOS HEIC ok).
+      if (isPendingDocs(c.status)) { li.classList.add('has-upload'); li.appendChild(buildClaimUpload(c)); }
       ul.appendChild(li);
+    });
+  }
+
+  function isPendingDocs(status) { return /pending/i.test(status || ''); }
+
+  var claimUploadSeq = 0;
+  function buildClaimUpload(claim) {
+    var wrap = el('div', 'portal-claim-upload');
+    var id = 'claimUpload_' + (++claimUploadSeq);
+    var input = document.createElement('input');
+    input.type = 'file'; input.multiple = true; input.id = id;
+    input.className = 'portal-file-input';
+    input.accept = 'image/*,.heic,.heif,application/pdf';
+    var btn = el('button', 'btn btn-primary portal-claim-upload-btn', '＋ Upload documents');
+    btn.type = 'button';
+    btn.addEventListener('click', function () { input.click(); });
+    var statusEl = el('span', 'portal-claim-upload-status'); statusEl.hidden = true;
+    input.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(this.files || []);
+      this.value = '';
+      if (files.length) { uploadClaimDocs(claim, files, statusEl, btn); }
+    });
+    wrap.appendChild(btn);
+    wrap.appendChild(input);
+    wrap.appendChild(statusEl);
+    return wrap;
+  }
+
+  function setUploadStatus(node, kind, msg) {
+    node.className = 'portal-claim-upload-status ' + kind;
+    node.innerHTML = '';
+    if (kind === 'busy') { node.appendChild(el('span', 'portal-spinner')); }
+    else if (kind === 'ok') { node.appendChild(el('span', 'portal-check', '✓')); }
+    node.appendChild(document.createTextNode(msg));
+    node.hidden = false;
+  }
+
+  // Reads each file to base64 and POSTs it to the existing upload endpoint. HEIC is
+  // sent as-is (Drive previews it). Shows a spinner, then a green success check.
+  function uploadClaimDocs(claim, files, statusEl, btn) {
+    var oversize = files.filter(function (f) { return f.size > MAX_FILE; });
+    files = files.filter(function (f) { return f.size <= MAX_FILE; });
+    if (!files.length) { setUploadStatus(statusEl, 'err', 'Each file must be under 5 MB.'); return; }
+    btn.disabled = true;
+    setUploadStatus(statusEl, 'busy', 'Uploading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…');
+    var ref = claim.claimId || claim.policyType || 'claim';
+    var chain = Promise.resolve(), ok = 0;
+    files.forEach(function (f) {
+      chain = chain.then(function () {
+        return readB64(f).then(function (b64) {
+          return gasUpload({ action: 'clientUpload', email: getEmail(), fileName: 'Claim ' + ref + ' — ' + f.name, mimeType: f.type || 'application/octet-stream', fileData: b64 }).then(function () { ok++; });
+        });
+      });
+    });
+    chain.then(function () {
+      var extra = oversize.length ? ' (' + oversize.length + ' over 5 MB skipped)' : '';
+      setUploadStatus(statusEl, 'ok', ok + ' document' + (ok > 1 ? 's' : '') + ' sent to Kevin' + extra);
+      btn.disabled = false;
+      loadClient(); // refresh "My Uploads"
+    }).catch(function (e2) {
+      setUploadStatus(statusEl, 'err', e2.message || 'Upload failed. Please try again.');
+      btn.disabled = false;
     });
   }
 
