@@ -247,8 +247,12 @@
     var err = el('div', 'mo-error'); err.hidden = true;
 
     function showName(file) {
-      nameOut.textContent = '✓ ' + file.name;
       nameOut.className = 'mo-file-name set';
+      var size = window.formatFileSize ? window.formatFileSize(file.size) : Math.round(file.size / 1024) + ' KB';
+      nameOut.textContent = '✓ ' + file.name + ' (' + size + ')';
+      var x = el('button', 'mo-file-clear', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Remove file');
+      x.addEventListener('click', function () { formData[cfg.key] = null; clearName(); input.value = ''; err.hidden = true; });
+      nameOut.appendChild(x);
     }
     function clearName() { nameOut.textContent = ''; nameOut.className = 'mo-file-name'; }
 
@@ -276,8 +280,14 @@
     next.addEventListener('click', function () {
       if (!formData[cfg.key]) { return fieldError(err, 'Please upload a file to continue.'); }
       err.hidden = true;
-      complete(container, cfg.summaryLabel, formData[cfg.key].name);
-      advanceFrom(container.id);
+      function proceed() {
+        complete(container, cfg.summaryLabel, formData[cfg.key].name);
+        advanceFrom(container.id);
+      }
+      // Verify the file for this step right after it's uploaded.
+      if (window.confirmUpload) {
+        window.confirmUpload({ fileNames: [formData[cfg.key].name] }).then(function (ok) { if (ok) { proceed(); } });
+      } else { proceed(); }
     });
     active.appendChild(next);
   }
@@ -314,6 +324,7 @@
     var submit = el('button', 'btn btn-primary mo-next', 'Submit for Quote'); submit.type = 'button';
     submit.addEventListener('click', function () {
       formData.addons = ta.value.trim();
+      // Each document was already verified on its own upload step, so just send.
       // File objects can't be JSON-stringified — describe them instead.
       console.log('Motor enquiry captured:\n' + JSON.stringify(formData, function (k, v) {
         return (typeof File !== 'undefined' && v instanceof File) ? (v.name + ' (' + v.type + ', ' + v.size + ' bytes)') : v;

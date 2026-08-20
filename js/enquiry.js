@@ -251,20 +251,29 @@
         });
     }
 
-    if (isPorting && fileInput.files[0]) {
-      var file = fileInput.files[0];
-      var reader = new FileReader();
-      reader.onload = function () {
-        var result = reader.result || '';
-        var base64 = result.indexOf(',') >= 0 ? result.split(',')[1] : result;
-        send(base64, file.name, file.type || 'application/octet-stream');
-      };
-      reader.onerror = function () {
-        showStatus('err', "Couldn't read the attached file. Please try again with a different file.");
-      };
-      reader.readAsDataURL(file);
+    function doSend() {
+      if (isPorting && fileInput.files[0]) {
+        var file = fileInput.files[0];
+        var reader = new FileReader();
+        reader.onload = function () {
+          var result = reader.result || '';
+          var base64 = result.indexOf(',') >= 0 ? result.split(',')[1] : result;
+          send(base64, file.name, file.type || 'application/octet-stream');
+        };
+        reader.onerror = function () {
+          showStatus('err', "Couldn't read the attached file. Please try again with a different file.");
+        };
+        reader.readAsDataURL(file);
+      } else {
+        send(null, null, null);
+      }
+    }
+
+    // When a document is attached, confirm it's the right one before sending.
+    if (isPorting && fileInput.files[0] && window.confirmUpload) {
+      window.confirmUpload({ fileNames: [fileInput.files[0].name] }).then(function (ok) { if (ok) { doSend(); } });
     } else {
-      send(null, null, null);
+      doSend();
     }
   });
 

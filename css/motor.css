@@ -81,6 +81,12 @@
 .mo-file-icon { font-size: 18px; }
 .mo-file-name { margin-top: 12px; font-size: 13.5px; color: var(--ink-mute); word-break: break-word; }
 .mo-file-name.set { color: var(--green-deep); font-weight: 600; }
+.mo-file-clear {
+  margin-left: 8px; vertical-align: middle; cursor: pointer; font-size: 13px; line-height: 1;
+  color: #b42318; background: #fbe9e7; border: 1px solid #f5c6bf; border-radius: 50%;
+  width: 22px; height: 22px; padding: 0; transition: background .15s;
+}
+.mo-file-clear:hover { background: #f6d2cc; }
 
 /* ---------- done / success ---------- */
 .mo-done { text-align: center; border-color: var(--green); }

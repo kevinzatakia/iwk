@@ -650,3 +650,23 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
   .wa-float { right: 16px; bottom: 16px; }
   .wa-btn { width: 56px; height: 56px; }
 }
+
+/* ================================================================
+   Upload verification modal (shared by the website enquiry forms).
+   ================================================================ */
+.uv-modal {
+  position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px;
+  background: rgba(0, 0, 0, .6);
+}
+.uv-modal[hidden] { display: none; }
+.uv-box {
+  background: #fff; border-radius: 20px; box-shadow: 0 24px 60px rgba(0, 0, 0, .3);
+  max-width: 440px; width: 100%; padding: 28px;
+}
+.uv-box h3 {
+  font-family: var(--serif, Georgia, serif); font-weight: 700; font-size: 22px; margin-bottom: 10px;
+  color: var(--green-deep, #0d3b2a);
+}
+.uv-msg { font-size: 14.5px; color: var(--ink-soft, #4a5a52); line-height: 1.6; }
+.uv-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+.uv-actions .btn { padding: 11px 20px; font-size: 14px; }

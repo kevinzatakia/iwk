@@ -298,9 +298,8 @@
           <ul class="portal-doclist" id="uploadsList">
             <li class="portal-empty">Loading…</li>
           </ul>
-          <label class="btn btn-primary portal-upload-btn" for="clientUploadInput">＋ Upload document</label>
-          <input id="clientUploadInput" class="portal-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png">
-          <div class="portal-folder-note">PDF, JPG or PNG · up to 5&nbsp;MB</div>
+          <button type="button" class="btn btn-primary portal-upload-btn" id="myUploadOpen">＋ Upload document</button>
+          <div id="myUploadMount"></div>
         </div>
       </div>
 
@@ -457,6 +456,18 @@
         <li><strong>Share details.</strong> Forward the exact premium amount to a family member in one tap.</li>
       </ul>
       <button type="button" class="btn btn-primary portal-block" id="familyActivateModal">Turn on Family Mode</button>
+    </div>
+  </div>
+
+  <!-- Upload verification (custom Yes/No, shown before any client upload) -->
+  <div class="pmodal" id="modalVerifyUpload" hidden>
+    <div class="pmodal-box">
+      <h3>Have you uploaded the correct files?</h3>
+      <p id="verifyUploadCount">These files will be sent to Kevin.</p>
+      <div class="portal-verify-actions">
+        <button type="button" class="btn btn-ghost" id="verifyUploadNo">No, let me check</button>
+        <button type="button" class="btn btn-primary" id="verifyUploadYes">Yes, send</button>
+      </div>
     </div>
   </div>
 

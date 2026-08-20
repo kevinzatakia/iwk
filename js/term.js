@@ -32,7 +32,7 @@
     existing: null,      // 'Yes' | 'No'
     existingSI: null,    // number, when existing === 'Yes'
     smoker: null,        // 'Yes' | 'No'
-    itrName: null, itrType: null, itrData: null
+    itrName: null, itrType: null, itrData: null, itrSize: null
   };
 
   var ORDER = ['ybStep2', 'ybStep3', 'ybStep4', 'ybStep5'];
@@ -46,7 +46,7 @@
     ybStep2: ['income'],
     ybStep3: ['existing', 'existingSI'],
     ybStep4: ['smoker'],
-    ybStep5: ['itrName', 'itrType', 'itrData']
+    ybStep5: ['itrName', 'itrType', 'itrData', 'itrSize']
   };
 
   var restartBtn = document.getElementById('ybRestart');
@@ -297,14 +297,15 @@
 
     function showName() {
       nameRow.hidden = false;
-      nameRow.textContent = '✓ ' + formData.itrName;
+      var size = (formData.itrSize && window.formatFileSize) ? ' (' + window.formatFileSize(formData.itrSize) + ')' : '';
+      nameRow.textContent = '✓ ' + formData.itrName + size;
       var x = el('button', 'tm-file-clear', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Remove file');
       x.addEventListener('click', function () { clearFile(); });
       nameRow.appendChild(x);
       upBtn.hidden = false;
     }
     function clearFile() {
-      formData.itrName = null; formData.itrType = null; formData.itrData = null;
+      formData.itrName = null; formData.itrType = null; formData.itrData = null; formData.itrSize = null;
       nameRow.hidden = true; nameRow.textContent = ''; upBtn.hidden = true; fileInput.value = '';
     }
 
@@ -315,6 +316,7 @@
       err.hidden = true;
       readB64(f).then(function (b64) {
         formData.itrName = f.name; formData.itrType = f.type || 'application/octet-stream'; formData.itrData = b64;
+        formData.itrSize = f.size;
         showName();
       }).catch(function () { err.hidden = false; err.textContent = 'Could not read that file. Please try another.'; clearFile(); });
     });
@@ -322,7 +324,13 @@
     if (formData.itrName) { showName(); } // restore on edit
 
     skipBtn.addEventListener('click', function () { submitTerm(container, skipBtn, upBtn, err, false); });
-    upBtn.addEventListener('click', function () { submitTerm(container, skipBtn, upBtn, err, true); });
+    upBtn.addEventListener('click', function () {
+      // Verify the attached ITR before sending.
+      if (window.confirmUpload) {
+        window.confirmUpload({ fileNames: formData.itrName ? [formData.itrName] : [] })
+          .then(function (ok) { if (ok) { submitTerm(container, skipBtn, upBtn, err, true); } });
+      } else { submitTerm(container, skipBtn, upBtn, err, true); }
+    });
   }
 
   // ===============================================================
@@ -411,7 +419,7 @@
   // Start over
   // ===============================================================
   restartBtn.addEventListener('click', function () {
-    formData = { name: '', email: '', phone: '', age: null, income: null, existing: null, existingSI: null, smoker: null, itrName: null, itrType: null, itrData: null };
+    formData = { name: '', email: '', phone: '', age: null, income: null, existing: null, existingSI: null, smoker: null, itrName: null, itrType: null, itrData: null, itrSize: null };
     ORDER.forEach(function (id) {
       var c = document.getElementById(id);
       c.classList.add('hidden');

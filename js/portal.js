@@ -267,20 +267,155 @@
     docs.forEach(function (d) { ul.appendChild(docRow(d)); });
   }
 
-  $('clientUploadInput').addEventListener('change', function () {
-    var file = this.files && this.files[0];
-    this.value = '';
-    if (!file) { return; }
-    if (file.size > MAX_FILE) { status('err', 'That file is larger than 5 MB.'); return; }
-    status('ok', 'Uploading ' + file.name + '…');
-    readB64(file).then(function (b64) {
-      return gasUpload({ action: 'clientUpload', email: getEmail(), fileName: file.name, mimeType: file.type || 'application/octet-stream', fileData: b64 });
-    }).then(function () {
-      // no-cors reply is opaque; re-read to confirm the file landed.
-      status('ok', 'Uploaded.');
-      loadClient();
-    }).catch(function (e2) { status('err', e2.message || 'Upload failed.'); });
+  // ============================================================
+  // STAGED UPLOADER + VERIFICATION
+  //   Files are held locally (never uploaded on selection) so the user can review
+  //   and remove them; "Continue" opens a custom Yes/No modal, and only "Yes"
+  //   pushes them to the server. Reused for "My Uploads" and claim documents.
+  // ============================================================
+  function formatBytes(bytes) {
+    if (bytes < 1024) { return bytes + ' B'; }
+    var kb = bytes / 1024;
+    if (kb < 1024) { return (kb < 10 ? kb.toFixed(1) : Math.round(kb)) + ' KB'; }
+    var mb = kb / 1024;
+    return (mb < 10 ? mb.toFixed(1) : Math.round(mb)) + ' MB';
+  }
+
+  // Uploads a list of files sequentially via the existing clientUpload action.
+  // nameFn lets the caller prefix the stored filename (e.g. per claim).
+  function uploadFiles(files, nameFn) {
+    var chain = Promise.resolve(), ok = 0;
+    files.forEach(function (f) {
+      chain = chain.then(function () {
+        return readB64(f).then(function (b64) {
+          return gasUpload({ action: 'clientUpload', email: getEmail(), fileName: nameFn(f), mimeType: f.type || 'application/octet-stream', fileData: b64 }).then(function () { ok++; });
+        });
+      });
+    });
+    return chain.then(function () { loadClient(); return ok; });
+  }
+
+  // Shared verify modal: openVerifyUpload(count, onYes) → Yes runs onYes.
+  var verifyPending = null;
+  function openVerifyUpload(count, onYes) {
+    verifyPending = onYes;
+    $('verifyUploadCount').textContent = count === 1
+      ? 'This 1 file will be sent to Kevin.'
+      : ('These ' + count + ' files will be sent to Kevin.');
+    $('modalVerifyUpload').hidden = false;
+  }
+  $('verifyUploadYes').addEventListener('click', function () {
+    $('modalVerifyUpload').hidden = true;
+    var cb = verifyPending; verifyPending = null; if (cb) { cb(); }
   });
+  $('verifyUploadNo').addEventListener('click', function () {
+    $('modalVerifyUpload').hidden = true; verifyPending = null;
+  });
+
+  var uploaderSeq = 0;
+  // opts: { title, accept, multiple, note, commitLabel, onCommit(files) -> Promise<count> }
+  function buildUploader(opts) {
+    var staged = [];
+    var seq = ++uploaderSeq;
+    var box = el('div', 'portal-uploader'); box.hidden = true;
+
+    var head = el('div', 'portal-uploader-head');
+    head.appendChild(el('span', 'portal-uploader-title', opts.title || 'Upload documents'));
+    var closeBtn = el('button', 'portal-uploader-close', '×'); closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', 'Close uploader');
+    head.appendChild(closeBtn); box.appendChild(head);
+
+    var input = document.createElement('input');
+    input.type = 'file'; input.className = 'portal-file-input'; input.id = 'uploaderInput_' + seq;
+    if (opts.multiple) { input.multiple = true; }
+    if (opts.accept) { input.accept = opts.accept; }
+
+    var drop = el('div', 'portal-dropzone');
+    var dzInner = el('div', 'portal-dropzone-inner');
+    dzInner.appendChild(el('span', 'portal-dropzone-ico', '⬆'));
+    var browse = el('label', 'portal-dropzone-browse', 'Browse'); browse.setAttribute('for', input.id);
+    dzInner.appendChild(browse);
+    dzInner.appendChild(el('span', 'portal-dropzone-hint', opts.note || 'or drop files here'));
+    drop.appendChild(dzInner);
+    box.appendChild(input); box.appendChild(drop);
+
+    var list = el('ul', 'portal-staged-list'); box.appendChild(list);
+    var statusN = el('div', 'portal-uploader-status'); statusN.hidden = true; box.appendChild(statusN);
+    var cont = el('button', 'btn btn-primary portal-uploader-continue', opts.commitLabel || 'Continue');
+    cont.type = 'button'; cont.disabled = true; box.appendChild(cont);
+
+    function setStatus(kind, msg) {
+      if (!kind) { statusN.hidden = true; statusN.innerHTML = ''; return; }
+      statusN.className = 'portal-uploader-status ' + kind; statusN.innerHTML = '';
+      if (kind === 'busy') { statusN.appendChild(el('span', 'portal-spinner')); }
+      else if (kind === 'ok') { statusN.appendChild(el('span', 'portal-check', '✓')); }
+      statusN.appendChild(document.createTextNode(msg)); statusN.hidden = false;
+    }
+
+    function render() {
+      list.innerHTML = '';
+      staged.forEach(function (f, i) {
+        var li = el('li', 'portal-staged-item');
+        var meta = el('div', 'portal-staged-meta');
+        meta.appendChild(el('span', 'portal-staged-name', f.name));
+        meta.appendChild(el('span', 'portal-staged-size', formatBytes(f.size)));
+        li.appendChild(meta);
+        var rm = el('button', 'portal-staged-remove', '×'); rm.type = 'button';
+        rm.setAttribute('aria-label', 'Remove ' + f.name);
+        rm.addEventListener('click', function () { staged.splice(i, 1); render(); });
+        li.appendChild(rm);
+        list.appendChild(li);
+      });
+      cont.disabled = staged.length === 0;
+    }
+
+    function addFiles(fileList) {
+      setStatus(null);
+      var rejected = 0;
+      Array.prototype.slice.call(fileList || []).forEach(function (f) {
+        if (f.size > MAX_FILE) { rejected++; return; }
+        if (!staged.some(function (s) { return s.name === f.name && s.size === f.size; })) { staged.push(f); }
+      });
+      if (!opts.multiple && staged.length > 1) { staged = staged.slice(-1); }
+      if (rejected) { setStatus('err', rejected + ' file' + (rejected > 1 ? 's' : '') + ' over 5 MB skipped.'); }
+      render();
+    }
+
+    input.addEventListener('change', function () { addFiles(this.files); this.value = ''; });
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('is-drag'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('is-drag'); }); });
+    drop.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files) { addFiles(e.dataTransfer.files); } });
+
+    closeBtn.addEventListener('click', function () { box.hidden = true; staged = []; render(); setStatus(null); });
+
+    cont.addEventListener('click', function () {
+      if (!staged.length) { return; }
+      openVerifyUpload(staged.length, function () {
+        cont.disabled = true; closeBtn.disabled = true;
+        setStatus('busy', 'Uploading ' + staged.length + ' file' + (staged.length > 1 ? 's' : '') + '…');
+        opts.onCommit(staged.slice()).then(function (n) {
+          staged = []; render();
+          setStatus('ok', n + ' document' + (n > 1 ? 's' : '') + ' sent to Kevin');
+        }).catch(function (e2) {
+          setStatus('err', (e2 && e2.message) || 'Upload failed. Please try again.');
+        }).then(function () { closeBtn.disabled = false; cont.disabled = staged.length === 0; });
+      });
+    });
+
+    render();
+    return { box: box, open: function () { box.hidden = false; setStatus(null); } };
+  }
+
+  // Mount the "My Uploads" staged uploader.
+  var myUploader = buildUploader({
+    title: 'Upload a document',
+    accept: '.pdf,.jpg,.jpeg,.png,image/*,.heic,.heif',
+    multiple: true,
+    note: 'PDF, JPG or PNG · up to 5 MB each',
+    onCommit: function (files) { return uploadFiles(files, function (f) { return f.name; }); }
+  });
+  $('myUploadMount').appendChild(myUploader.box);
+  $('myUploadOpen').addEventListener('click', function () { myUploader.open(); });
 
   // ============================================================
   // FAMILY ORGANIZER (POC mode)
@@ -671,64 +806,23 @@
 
   function isPendingDocs(status) { return /pending/i.test(status || ''); }
 
-  var claimUploadSeq = 0;
+  // Claim documents use the same staged uploader (browse → preview → verify).
   function buildClaimUpload(claim) {
     var wrap = el('div', 'portal-claim-upload');
-    var id = 'claimUpload_' + (++claimUploadSeq);
-    var input = document.createElement('input');
-    input.type = 'file'; input.multiple = true; input.id = id;
-    input.className = 'portal-file-input';
-    input.accept = 'image/*,.heic,.heif,application/pdf';
+    var ref = claim.claimId || claim.policyType || 'claim';
+    var uploader = buildUploader({
+      title: 'Upload claim documents',
+      accept: 'image/*,.heic,.heif,application/pdf',
+      multiple: true,
+      note: 'Photos or PDFs · up to 5 MB each',
+      onCommit: function (files) { return uploadFiles(files, function (f) { return 'Claim ' + ref + ' — ' + f.name; }); }
+    });
     var btn = el('button', 'btn btn-primary portal-claim-upload-btn', '＋ Upload documents');
     btn.type = 'button';
-    btn.addEventListener('click', function () { input.click(); });
-    var statusEl = el('span', 'portal-claim-upload-status'); statusEl.hidden = true;
-    input.addEventListener('change', function () {
-      var files = Array.prototype.slice.call(this.files || []);
-      this.value = '';
-      if (files.length) { uploadClaimDocs(claim, files, statusEl, btn); }
-    });
+    btn.addEventListener('click', function () { uploader.open(); });
     wrap.appendChild(btn);
-    wrap.appendChild(input);
-    wrap.appendChild(statusEl);
+    wrap.appendChild(uploader.box);
     return wrap;
-  }
-
-  function setUploadStatus(node, kind, msg) {
-    node.className = 'portal-claim-upload-status ' + kind;
-    node.innerHTML = '';
-    if (kind === 'busy') { node.appendChild(el('span', 'portal-spinner')); }
-    else if (kind === 'ok') { node.appendChild(el('span', 'portal-check', '✓')); }
-    node.appendChild(document.createTextNode(msg));
-    node.hidden = false;
-  }
-
-  // Reads each file to base64 and POSTs it to the existing upload endpoint. HEIC is
-  // sent as-is (Drive previews it). Shows a spinner, then a green success check.
-  function uploadClaimDocs(claim, files, statusEl, btn) {
-    var oversize = files.filter(function (f) { return f.size > MAX_FILE; });
-    files = files.filter(function (f) { return f.size <= MAX_FILE; });
-    if (!files.length) { setUploadStatus(statusEl, 'err', 'Each file must be under 5 MB.'); return; }
-    btn.disabled = true;
-    setUploadStatus(statusEl, 'busy', 'Uploading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…');
-    var ref = claim.claimId || claim.policyType || 'claim';
-    var chain = Promise.resolve(), ok = 0;
-    files.forEach(function (f) {
-      chain = chain.then(function () {
-        return readB64(f).then(function (b64) {
-          return gasUpload({ action: 'clientUpload', email: getEmail(), fileName: 'Claim ' + ref + ' — ' + f.name, mimeType: f.type || 'application/octet-stream', fileData: b64 }).then(function () { ok++; });
-        });
-      });
-    });
-    chain.then(function () {
-      var extra = oversize.length ? ' (' + oversize.length + ' over 5 MB skipped)' : '';
-      setUploadStatus(statusEl, 'ok', ok + ' document' + (ok > 1 ? 's' : '') + ' sent to Kevin' + extra);
-      btn.disabled = false;
-      loadClient(); // refresh "My Uploads"
-    }).catch(function (e2) {
-      setUploadStatus(statusEl, 'err', e2.message || 'Upload failed. Please try again.');
-      btn.disabled = false;
-    });
   }
 
   function renderExpiredPanel() {
