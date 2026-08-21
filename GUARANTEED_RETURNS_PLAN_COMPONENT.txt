@@ -1,0 +1,44 @@
+# System Prompt / PRD: Guaranteed Returns Plans Form with GAS Backend
+
+## 1. Project Objective
+Update the existing main menu/UI by renaming the "Life" insurance option to "Guaranteed Returns Plans". 
+When the user selects this option, display a lead capture form. Unlike other forms on this site, this is a short form and MUST NOT use progressive disclosure. All fields must be visible in a single component/view. 
+Upon completion, the frontend will package the text data into a JSON payload and send it to the deployed Google Apps Script (GAS) Web App, which will email the details to the site owner.
+
+## 2. Tech Stack Constraints
+* Frontend: Vanilla HTML5, CSS3, and Vanilla JavaScript (ES6+).
+* Styling: Custom CSS (Flexbox/Grid). Match the existing card UI style.
+* Backend/Email: Google Apps Script (Web App).
+* Architecture: Output the final frontend code block and the GAS backend code block.
+
+## 3. UI/UX Specifications
+* Container: A clean, centered card UI with a maximum width of `500px`.
+* Layout: A standard, single-view HTML form. All fields are visible immediately.
+* Validation UI: If the Sum Insured is less than 2 Lakhs (₹2,00,000), immediately display a red error message below the input (e.g., "Minimum Sum Insured must be ₹2,00,000") and disable the Submit button until corrected.
+
+## 4. Fields & Validation Rules
+Implement the following standard inputs inside the single form container:
+
+* **Name:** `<input type="text">` (Required)
+* **Phone Number:** `<input type="tel">` (Required, standard 10-digit validation)
+* **Email:** `<input type="email">` (Required)
+* **Date of Birth:** `<input type="date">` (Required)
+* **Sum Insured:** `<input type="number">` (Required). 
+  - Add placeholder/helper text: *(For Eg: Minimum 2L)*
+  - JavaScript Validation: Attach an `input` event listener. If `value < 200000`, prevent form submission and show the error UI.
+
+## 5. Frontend JS Implementation (Fetch to GAS)
+When the user clicks the "Submit for Quote" button:
+1. Run a final validation check on all fields, especially ensuring Sum Insured >= 200000.
+2. Prevent default form submission. Change button text to "Sending...".
+3. Package all text fields into a single JSON object.
+4. Use the `fetch()` API to send a `POST` request with `mode: 'no-cors'` to `YOUR_GAS_WEB_APP_URL`.
+5. On success, hide the form and show a success message: "Success! Your Guaranteed Returns plan inquiry has been submitted."
+
+## 6. Backend Google Apps Script Implementation (Code.gs)
+Provide the `.gs` script to process this request:
+1. Use the `doPost(e)` function.
+2. Parse `JSON.parse(e.postData.contents)`.
+3. Construct a cleanly formatted HTML email body containing: Name, Phone, Email, Date of Birth, and the requested Sum Insured.
+4. Use `MailApp.sendEmail()` to send the email to the admin.
+5. Return a CORS-friendly JSON response using `ContentService`.

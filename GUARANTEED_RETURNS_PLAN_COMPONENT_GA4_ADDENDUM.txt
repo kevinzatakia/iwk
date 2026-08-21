@@ -1,0 +1,49 @@
+Because this form does not have multiple steps, the `form_step_complete` event from your previous GA4 setup no longer applies.
+
+Instead, the tracking should focus on when the form is opened, when it is successfully submitted, and—crucially for this specific scheme—when a user hits the ₹2 Lakh minimum validation error. Tracking that error will tell you exactly how many potential clients you are losing because they wanted a smaller policy.
+
+Here is the exact PRD addendum to give your coding agent to adjust the tracking for this specific form:
+
+---
+
+```text
+# System Prompt / PRD Addendum: GA4 Tracking for Guaranteed Returns Form
+
+## 1. Tracking Adjustments for Single-Step Form
+Since the "Guaranteed Returns Plans" form is a single-view component without progressive steps, DO NOT implement the `form_step_complete` GA4 event here. Instead, implement the following three specific events.
+
+### Event 1: Form Started
+Trigger this immediately when the user clicks the "Guaranteed Returns Plans" option from the main menu and the form is rendered on screen.
+```javascript
+gtag('event', 'form_start', {
+  'form_name': 'Guaranteed_Returns',
+  'form_destination': 'Lead_Capture'
+});
+
+```
+
+### Event 2: Validation Error (Minimum Sum Insured)
+
+Trigger this event if the user attempts to submit the form (or triggers the input validation) with a Sum Insured of less than 2,00,000. Ensure you debounce this event or only fire it on the submit attempt so it doesn't trigger on every single keystroke.
+
+```javascript
+gtag('event', 'form_error', {
+  'form_name': 'Guaranteed_Returns',
+  'error_type': 'Minimum_SI_Validation',
+  'input_value': document.getElementById('sum_insured_input').value // Send the actual amount they tried to enter
+});
+
+```
+
+### Event 3: Form Submitted (Lead Generated)
+
+Trigger this inside the `fetch()` success block when the data is successfully sent to the Google Apps Script backend.
+
+```javascript
+gtag('event', 'generate_lead', {
+  'form_name': 'Guaranteed_Returns',
+  'currency': 'INR',
+  'value': 1 
+});
+
+```

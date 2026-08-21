@@ -1,0 +1,40 @@
+/* ================================================================
+   Guaranteed Returns Plans — single-view lead-capture card.
+   Builds on css/styles.css (tokens, .f, .f-label, .btn, .eyebrow).
+   ================================================================ */
+.gr-section { display: flex; justify-content: center; }
+
+.gr-card {
+  width: 100%; max-width: 500px; margin: 0 auto;
+  background: #fff; border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow);
+  padding: clamp(22px, 4vw, 34px);
+}
+
+.gr-head { margin-bottom: 22px; }
+.gr-head h1 {
+  font-family: var(--serif); font-weight: 700; font-size: clamp(23px, 4vw, 31px); line-height: 1.15;
+  margin: 8px 0;
+}
+.gr-head h1 em { font-style: italic; color: var(--green); }
+.gr-head p { font-size: 14.5px; color: var(--ink-soft); line-height: 1.6; }
+
+.gr-field { margin-bottom: 16px; }
+.gr-field .f-label { display: block; margin-bottom: 6px; }
+
+.gr-error { margin-top: 7px; font-size: 13px; font-weight: 600; color: #b42318; }
+.gr-error[hidden] { display: none; }
+.gr-form-error { margin: 4px 0 14px; }
+
+.gr-submit { width: 100%; margin-top: 8px; }
+.gr-submit:disabled { opacity: .55; cursor: default; }
+
+.gr-done { text-align: center; padding: 8px 0; }
+.gr-done[hidden] { display: none; }
+.gr-done-icon {
+  width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 50%;
+  background: var(--green-tint, #e8f2ec); color: var(--green-deep, #0d3b2a);
+  font-size: 28px; font-weight: 900; display: flex; align-items: center; justify-content: center;
+}
+.gr-done h2 { font-family: var(--serif); font-weight: 700; font-size: 24px; margin-bottom: 8px; color: var(--green-deep); }
+.gr-done p { font-size: 14.5px; color: var(--ink-soft); line-height: 1.6; margin-bottom: 18px; }
+.gr-done-wa { display: inline-flex; }

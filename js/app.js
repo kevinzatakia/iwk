@@ -11,9 +11,9 @@ function el(tag, cls, text) {
   var WA_NUM = '918369988285';
   var EMAIL = 'admin@insureitwithkevin.in';
 
-  var PRODUCTS = ['Life','Health','Motor','Term','Travel','Home','Fire','Shop','Workmen Compensation','Personal Accident','Port my policy'];
+  var PRODUCTS = ['Guaranteed Returns Plans','Health','Motor','Term','Travel','Home','Fire','Shop','Workmen Compensation','Personal Accident','Port my policy'];
   var DESCRIPTIONS = {
-    'Life': 'Pays your family a lump sum if something happens to you.',
+    'Guaranteed Returns Plans': 'Guaranteed maturity payouts with life cover built in — a savings-and-protection plan.',
     'Health': 'Covers hospital bills and medical treatment costs.',
     'Motor': 'Covers damage to your car or bike, and third-party liability.',
     'Term': 'Pure life cover: the highest payout for the lowest premium.',
@@ -50,6 +50,7 @@ function el(tag, cls, text) {
   // Policies with their own dedicated multi-step enquiry page. Each is exclusive:
   // selecting one clears and locks every other option (unclick it to go back).
   var EXCLUSIVE_PAGES = {
+    'Guaranteed Returns Plans': 'guaranteed-returns.html',
     'Health': 'health.html',
     'Term': 'term.html',
     'Workmen Compensation': 'workmen.html',
