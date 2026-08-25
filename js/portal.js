@@ -1029,20 +1029,38 @@
 
     function fail(msg) { fieldErr(err, msg); btn.disabled = false; btn.textContent = 'Submit'; }
 
-    if (spFile) {
-      // A file won't fit in a JSONP GET → no-cors POST (opaque); refresh shortly after.
-      readB64(spFile).then(function (b64) {
-        payload.fileName = spFile.name; payload.mimeType = spFile.type || 'application/octet-stream'; payload.fileData = b64;
-        return gasUpload(payload);
-      }).then(function () {
-        var ctx = subCtx; closeSubProfileModal(); status('ok', 'Saved.');
-        setTimeout(function () { refreshAfterSubProfile(ctx); }, 1200);
-      }).catch(function (e2) { fail(e2.message || 'Could not save.'); });
+    function proceed() {
+      if (spFile) {
+        // A file won't fit in a JSONP GET → no-cors POST (opaque); refresh shortly after.
+        readB64(spFile).then(function (b64) {
+          payload.fileName = spFile.name; payload.mimeType = spFile.type || 'application/octet-stream'; payload.fileData = b64;
+          return gasUpload(payload);
+        }).then(function () {
+          var ctx = subCtx; closeSubProfileModal(); status('ok', 'Saved.');
+          setTimeout(function () { refreshAfterSubProfile(ctx); }, 1200);
+        }).catch(function (e2) { fail(e2.message || 'Could not save.'); });
+      } else {
+        gasGet(payload).then(function (data) {
+          if (data && data.status === 'success') { var ctx = subCtx; closeSubProfileModal(); status('ok', 'Saved.'); refreshAfterSubProfile(ctx); }
+          else { fail((data && data.message) || 'Could not save.'); }
+        }).catch(function (e2) { fail(e2.message || 'Network error.'); });
+      }
+    }
+
+    // On create, read the sheet first to catch an individual already added under
+    // this account (dedupe by email). The backend enforces it too, but this shows
+    // the message reliably even when a file makes the write opaque.
+    if (subCtx.mode === 'create') {
+      gasGet({ action: 'getSubProfiles', email: getEmail(), parentEmail: subCtx.parentEmail })
+        .then(function (data) {
+          var existing = (data && data.status === 'success' && data.profiles) || [];
+          var dup = existing.some(function (x) { return (x.profileEmail || '').toLowerCase() === email.toLowerCase(); });
+          if (dup) { return fail('A profile with this email already exists for this account.'); }
+          proceed();
+        })
+        .catch(function () { proceed(); }); // if the check can't run, let the backend guard it
     } else {
-      gasGet(payload).then(function (data) {
-        if (data && data.status === 'success') { var ctx = subCtx; closeSubProfileModal(); status('ok', 'Saved.'); refreshAfterSubProfile(ctx); }
-        else { fail((data && data.message) || 'Could not save.'); }
-      }).catch(function (e2) { fail(e2.message || 'Network error.'); });
+      proceed();
     }
   });
 
@@ -1129,7 +1147,7 @@
     accordion.innerHTML = '';
     if (!profiles.length) { accordion.appendChild(el('div', 'portal-empty', 'No sub-profiles yet.')); return; }
     profiles.forEach(function (p) {
-      var row = el('div', 'portal-subrow'); row.tabIndex = 0; row.setAttribute('role', 'button');
+      var row = el('div', 'portal-subrow');
       var info = el('div', 'portal-subrow-info');
       var nm = el('div', 'portal-subrow-name'); nm.appendChild(document.createTextNode(p.name || 'Member'));
       if (p.relation) { nm.appendChild(el('span', 'portal-member-rel', p.relation)); }
@@ -1137,11 +1155,53 @@
       var meta = [p.profileEmail, p.dob ? 'DOB ' + fmtDate(p.dob) : ''].filter(Boolean).join(' · ');
       if (meta) { info.appendChild(el('div', 'portal-subrow-meta', meta)); }
       row.appendChild(info);
-      row.appendChild(el('span', 'portal-subrow-edit', 'Edit ›'));
-      row.addEventListener('click', function () {
+      var actions = el('div', 'portal-subrow-actions');
+      var viewBtn = el('button', 'portal-subrow-btn', 'View'); viewBtn.type = 'button';
+      var editBtn = el('button', 'portal-subrow-btn', 'Edit'); editBtn.type = 'button';
+      viewBtn.addEventListener('click', function () { viewSubProfile(u, p); });
+      editBtn.addEventListener('click', function () {
         openSubProfileModal({ mode: 'edit', parentEmail: u.email, parentName: fullName(u) || u.email, isAdmin: true, profile: p });
       });
+      actions.appendChild(viewBtn); actions.appendChild(editBtn);
+      row.appendChild(actions);
       accordion.appendChild(row);
+    });
+  }
+
+  // Show a sub-profile's linked policies + documents in the admin viewing panel.
+  function viewSubProfile(u, sub) {
+    selectedUser = u; // keep the parent linked (don't re-render — that would collapse the accordion)
+    $('viewingName').textContent = sub.name || 'profile';
+    $('adminDocsLabel').textContent = '📋 Policies';
+    $('clientDocsLabel').textContent = '📎 Documents';
+    $('viewingFolder').hidden = false;
+    var pList = $('adminDocsList'), dList = $('clientDocsList');
+    pList.innerHTML = ''; pList.appendChild(el('li', 'portal-empty', 'Loading…'));
+    dList.innerHTML = ''; dList.appendChild(el('li', 'portal-empty', 'Loading…'));
+    var matches = function (x) { return sub.profileId && String(x.profileId || '') === String(sub.profileId); };
+    // Structured policies for this profile (from the parent's family data).
+    gasGet({ action: 'getFamily', email: u.email })
+      .then(function (data) { renderPolicyList(pList, ((data && data.policies) || []).filter(matches), 'No policies linked to this profile yet.'); })
+      .catch(function () { pList.innerHTML = ''; pList.appendChild(el('li', 'portal-empty', 'Could not load.')); });
+    // Documents linked to this profile.
+    gasGet({ action: 'getDocuments', email: u.email })
+      .then(function (data) { renderViewList(dList, ((data && data.documents) || []).filter(matches), 'No documents for this profile yet.'); })
+      .catch(function () { dList.innerHTML = ''; dList.appendChild(el('li', 'portal-empty', 'Could not load.')); });
+  }
+
+  function renderPolicyList(ul, policies, emptyMsg) {
+    ul.innerHTML = '';
+    if (!policies.length) { ul.appendChild(el('li', 'portal-empty', emptyMsg)); return; }
+    policies.forEach(function (p) {
+      var li = el('li');
+      var main = el('div', 'portal-doc-main');
+      main.appendChild(el('span', 'portal-doc-poltitle', (p.policyType || 'Policy') + (p.insurer ? ' · ' + p.insurer : '')));
+      var bits = [];
+      if (p.premiumAmount) { bits.push('₹' + Math.round(Number(p.premiumAmount)).toLocaleString('en-IN')); }
+      if (p.renewalDate) { bits.push('Renews ' + fmtDate(p.renewalDate)); }
+      if (bits.length) { main.appendChild(el('span', 'portal-doc-meta', bits.join(' · '))); }
+      li.appendChild(main);
+      ul.appendChild(li);
     });
   }
   function reloadAdminSubProfiles(parentEmail) {
@@ -1287,6 +1347,8 @@
     selectedUser = u;
     renderUsers(); // refresh the highlight
     var sel = $('adminTargetUser'); if (sel) { sel.value = u.email; } // pre-select them for sending
+    $('adminDocsLabel').textContent = '📨 Sent by you';
+    $('clientDocsLabel').textContent = '📎 Uploaded by client';
     $('viewingName').textContent = fullName(u) || u.email;
     $('viewingFolder').hidden = false;
     loadClientDocs(u.email);
