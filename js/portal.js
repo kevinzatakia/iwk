@@ -1082,6 +1082,11 @@
     else { loadFamilyProfiles(); loadFamily(); }
   }
 
+  function docCountLabel(n) {
+    if (!n) { return ''; }
+    return n + (n === 1 ? ' document' : ' documents');
+  }
+
   // ---- client "Family Profiles" section ----
   function loadFamilyProfiles() {
     var wrap = $('familyProfilesList');
@@ -1104,6 +1109,7 @@
       if (p.relation) { nameRow.appendChild(el('span', 'portal-member-rel', p.relation)); }
       info.appendChild(nameRow);
       var meta = []; if (p.profileEmail) { meta.push(p.profileEmail); } if (p.dob) { meta.push('DOB ' + fmtDate(p.dob)); }
+      if (docCountLabel(p.docCount)) { meta.push(docCountLabel(p.docCount)); }
       if (meta.length) { info.appendChild(el('div', 'portal-famcard-meta', meta.join(' · '))); }
       head.appendChild(info);
       var actions = el('div', 'portal-famcard-actions');
@@ -1119,11 +1125,15 @@
       });
       docsBtn.addEventListener('click', function () {
         if (!docsWrap.hidden) { docsWrap.hidden = true; return; }
-        var docs = clientDocsCache.filter(function (d) { return String(d.profileId || '') === String(p.profileId) && p.profileId; });
-        docsWrap.innerHTML = '';
-        if (!docs.length) { docsWrap.appendChild(el('li', 'portal-empty', 'No documents for this member yet.')); }
-        else { docs.forEach(function (d) { docsWrap.appendChild(docRow(d)); }); }
-        docsWrap.hidden = false;
+        docsWrap.innerHTML = ''; docsWrap.appendChild(el('li', 'portal-empty', 'Loading…')); docsWrap.hidden = false;
+        gasGet({ action: 'getProfileDocs', email: getEmail(), profileId: p.profileId, profileEmail: p.profileEmail })
+          .then(function (data) {
+            var docs = (data && data.documents) || [];
+            docsWrap.innerHTML = '';
+            if (!docs.length) { docsWrap.appendChild(el('li', 'portal-empty', 'No documents for this member yet.')); }
+            else { docs.forEach(function (d) { docsWrap.appendChild(docRow(d)); }); }
+          })
+          .catch(function () { docsWrap.innerHTML = ''; docsWrap.appendChild(el('li', 'portal-empty', 'Could not load.')); });
       });
       wrap.appendChild(card);
     });
@@ -1152,7 +1162,7 @@
       var nm = el('div', 'portal-subrow-name'); nm.appendChild(document.createTextNode(p.name || 'Member'));
       if (p.relation) { nm.appendChild(el('span', 'portal-member-rel', p.relation)); }
       info.appendChild(nm);
-      var meta = [p.profileEmail, p.dob ? 'DOB ' + fmtDate(p.dob) : ''].filter(Boolean).join(' · ');
+      var meta = [p.profileEmail, p.dob ? 'DOB ' + fmtDate(p.dob) : '', docCountLabel(p.docCount)].filter(Boolean).join(' · ');
       if (meta) { info.appendChild(el('div', 'portal-subrow-meta', meta)); }
       row.appendChild(info);
       var actions = el('div', 'portal-subrow-actions');
@@ -1183,9 +1193,9 @@
     gasGet({ action: 'getFamily', email: u.email })
       .then(function (data) { renderPolicyList(pList, ((data && data.policies) || []).filter(matches), 'No policies linked to this profile yet.'); })
       .catch(function () { pList.innerHTML = ''; pList.appendChild(el('li', 'portal-empty', 'Could not load.')); });
-    // Documents linked to this profile.
-    gasGet({ action: 'getDocuments', email: u.email })
-      .then(function (data) { renderViewList(dList, ((data && data.documents) || []).filter(matches), 'No documents for this profile yet.'); })
+    // Documents for this individual — by ProfileID, ProfileEmail, or their own uploads.
+    gasGet({ action: 'getProfileDocs', email: getEmail(), profileId: sub.profileId, profileEmail: sub.profileEmail })
+      .then(function (data) { renderViewList(dList, (data && data.documents) || [], 'No documents for this profile yet.'); })
       .catch(function () { dList.innerHTML = ''; dList.appendChild(el('li', 'portal-empty', 'Could not load.')); });
   }
 
