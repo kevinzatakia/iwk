@@ -79,20 +79,117 @@ function el(tag, cls, text) {
   // page, carrying the chosen policies along in the query string.
   var pickerCta = document.querySelector('.picker-cta');
 
+  // Policy chip icons (PNGs from Flaticon, in images/policy-icons/ — see footer
+  // credit). Missing files degrade gracefully: the <img> removes itself on error,
+  // leaving a clean text-only chip.
+  // var ICON_DIR = 'images/';
+  // var ICONS = {
+  //   'Guaranteed Returns Plans': 'life.png',
+  //   'Health': 'health.png',
+  //   'Motor': 'motor.png',
+  //   'Term': 'term.png',
+  //   'Travel': 'travel.png',
+  //   'Home': 'home.png',
+  //   'Fire': 'fire.png',
+  //   'Shop': 'shop.png',
+  //   'Workmen Compensation': 'workmen.png',
+  //   'Personal Accident': 'personal-accident.png',
+  //   'Port my policy': 'port.png'
+  // };
+  // function chipIcon(file) {
+  //   var img = document.createElement('img');
+  //   img.className = 'chip-ico'; img.src = ICON_DIR + file; img.alt = ''; img.setAttribute('aria-hidden', 'true');
+  //   img.addEventListener('error', function () { img.remove(); });
+  //   return img;
+  // }
+  // function chipLabel(text) {
+  //   var s = document.createElement('span'); s.className = 'chip-label'; s.textContent = text; return s;
+  // }
+
+  // // build chips
+  // PRODUCTS.forEach(function (p) {
+  //   var b = document.createElement('button');
+  //   b.type = 'button';
+  //   b.className = 'chip';
+  //   b.dataset.product = p;
+  //   if (ICONS[p]) { b.appendChild(chipIcon(ICONS[p])); }
+  //   b.appendChild(chipLabel(p));
+  //   b.addEventListener('click', function () { toggleProduct(p); });
+  //   chipsEl.appendChild(b);
+  // });
+  // var unsureBtn = document.createElement('button');
+  // unsureBtn.type = 'button';
+  // unsureBtn.className = 'chip chip-unsure';
+  // unsureBtn.appendChild(chipIcon('help.png'));
+  // unsureBtn.appendChild(chipLabel('Not sure yet, help me decide'));
+  // unsureBtn.addEventListener('click', function () {
+  //   state.unsure = !state.unsure;
+  //   if (state.unsure) state.selected = [];
+  //   render();
+  // });
+  // chipsEl.appendChild(unsureBtn);
+
+  // Policy chip icons (PNGs from Flaticon, in images/policy-icons/ — see footer
+  // credit). Missing files degrade gracefully: the badge removes itself on error,
+  // leaving a clean text-only chip.
+  var ICON_DIR = 'images/policy-icons/';
+  var ICONS = {
+    'Guaranteed Returns Plans': 'life.png',
+    'Health': 'health.png',
+    'Motor': 'motor.png',
+    'Term': 'term.png',
+    'Travel': 'travel.png',
+    'Home': 'home.png',
+    'Fire': 'fire.png',
+    'Shop': 'shop.png',
+    'Workmen Compensation': 'workmen.png',
+    'Personal Accident': 'personal.png',
+    'Port my policy': 'port.png'
+  };
+
+  function chipIcon(file) {
+    // Create the circular badge container
+    var badge = document.createElement('div');
+    badge.className = 'icon-badge';
+
+    // Create the image element
+    var img = document.createElement('img');
+    img.className = 'chip-ico'; 
+    img.src = ICON_DIR + file; 
+    img.alt = ''; 
+    img.setAttribute('aria-hidden', 'true');
+    
+    // If the image fails to load, remove the whole badge
+    img.addEventListener('error', function () { badge.remove(); });
+    
+    badge.appendChild(img);
+    return badge;
+  }
+
+  function chipLabel(text) {
+    var s = document.createElement('span'); 
+    s.className = 'chip-label'; 
+    s.textContent = text; 
+    return s;
+  }
+
   // build chips
   PRODUCTS.forEach(function (p) {
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'chip';
-    b.textContent = p;
     b.dataset.product = p;
+    if (ICONS[p]) { b.appendChild(chipIcon(ICONS[p])); }
+    b.appendChild(chipLabel(p));
     b.addEventListener('click', function () { toggleProduct(p); });
     chipsEl.appendChild(b);
   });
+
   var unsureBtn = document.createElement('button');
   unsureBtn.type = 'button';
   unsureBtn.className = 'chip chip-unsure';
-  unsureBtn.textContent = 'Not sure yet, help me decide';
+  unsureBtn.appendChild(chipIcon('not_sure.png'));
+  unsureBtn.appendChild(chipLabel('Not sure yet')); // Shortened to fit vertical layout better
   unsureBtn.addEventListener('click', function () {
     state.unsure = !state.unsure;
     if (state.unsure) state.selected = [];
