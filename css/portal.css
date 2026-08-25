@@ -478,6 +478,78 @@ body.portal { min-height: 100vh; }
 @keyframes portal-spin { to { transform: rotate(360deg); } }
 
 /* ================================================================
+   Family sub-profiles — admin accordion, client cards, modal.
+   ================================================================ */
+/* admin user row now wraps a row + a nested accordion */
+.portal-userlist > .portal-user-li { display: block; padding: 0; border: none; background: none; }
+.portal-user-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--ivory);
+}
+.portal-user-box { flex: 1; min-width: 0; }
+.portal-user-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+.portal-user-chevron {
+  flex: none; width: 26px; height: 26px; border-radius: 8px; cursor: pointer; font-size: 16px; line-height: 1;
+  color: var(--ink-soft); background: #fff; border: 1px solid var(--line);
+  transition: transform .18s, background .15s, color .15s;
+}
+.portal-user-chevron:hover { background: var(--green-tint); color: var(--green-deep); }
+.portal-user-li.is-expanded .portal-user-chevron { transform: rotate(90deg); }
+.portal-user-create {
+  font-family: var(--sans); font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;
+  color: var(--green-deep); background: var(--green-tint); border: 1px solid rgba(23, 105, 74, .28);
+  border-radius: 8px; padding: 6px 10px; transition: background .15s;
+}
+.portal-user-create:hover { background: #d8e7da; }
+
+.portal-subaccordion { padding: 8px 8px 10px 40px; display: flex; flex-direction: column; gap: 6px; }
+.portal-subaccordion[hidden] { display: none; }
+.portal-subrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer;
+  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #fff; transition: border-color .15s;
+}
+.portal-subrow:hover { border-color: var(--green); }
+.portal-subrow-name { font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.portal-subrow-meta { font-size: 12px; color: var(--ink-mute); margin-top: 2px; }
+.portal-subrow-edit { font-size: 12px; font-weight: 800; color: var(--green); white-space: nowrap; }
+
+/* client "Family Profiles" section */
+.portal-famprofiles { max-width: 900px; margin: 0 auto 20px; }
+.portal-famprofiles-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.portal-famprofiles-head h3 { font-family: var(--serif); font-weight: 700; font-size: 19px; }
+.portal-famprofiles-add { padding: 9px 15px; font-size: 13px; white-space: nowrap; }
+.portal-famprofiles-list { display: flex; flex-direction: column; gap: 10px; }
+.portal-famcard { border: 1px solid var(--line); border-radius: 12px; background: var(--ivory); padding: 12px 14px; }
+.portal-famcard-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.portal-famcard-info { min-width: 0; flex: 1; }
+.portal-famcard-name { font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.portal-famcard-meta { font-size: 12.5px; color: var(--ink-mute); margin-top: 3px; word-break: break-word; }
+.portal-famcard-actions { display: flex; gap: 8px; flex: none; }
+.portal-famcard-btn {
+  font-family: var(--sans); font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  color: var(--green-deep); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px;
+  transition: border-color .15s, color .15s;
+}
+.portal-famcard-btn:hover { border-color: var(--green); color: var(--green); }
+.portal-famcard-docs { margin-top: 12px; }
+.portal-famcard-docs[hidden] { display: none; }
+
+/* "Linked via Family Account" tag on inherited documents */
+.portal-doc-tag {
+  display: inline-block; margin-top: 4px; width: fit-content; font-size: 10.5px; font-weight: 800; color: #1e4a8a;
+  background: #eaf1fb; border: 1px solid #c9dcf5; border-radius: 999px; padding: 2px 8px;
+}
+
+/* sub-profile modal */
+#subProfileForm .f-label { display: block; margin: 12px 0 6px; }
+#subProfileForm .f-label:first-of-type { margin-top: 0; }
+.portal-subprofile-actions { display: flex; align-items: center; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+.portal-subprofile-spacer { flex: 1; }
+.btn-danger { color: #fff; background: #b42318; border: 1px solid #9a1d14; }
+.btn-danger:hover { background: #9a1d14; }
+.portal-sp-delete[hidden] { display: none; }
+
+/* ================================================================
    Staged uploader (browse → preview → verify) + verify modal.
    ================================================================ */
 .portal-uploader {

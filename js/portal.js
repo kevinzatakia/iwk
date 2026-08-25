@@ -211,7 +211,10 @@
     var a = el('a', null, doc.fileName || 'Document');
     a.href = doc.fileURL || '#'; a.target = '_blank'; a.rel = 'noopener';
     main.appendChild(a);
-    if (doc.timestamp) { main.appendChild(el('span', 'portal-doc-meta', new Date(doc.timestamp).toLocaleDateString())); }
+    var metaBits = [];
+    if (doc.timestamp) { metaBits.push(new Date(doc.timestamp).toLocaleDateString()); }
+    if (metaBits.length) { main.appendChild(el('span', 'portal-doc-meta', metaBits.join(' · '))); }
+    if (doc.linkedViaFamily) { main.appendChild(el('span', 'portal-doc-tag', 'Linked via Family Account')); }
     li.appendChild(main);
 
     var del = el('button', 'portal-doc-del', 'Delete');
@@ -239,6 +242,7 @@
     closeAllPanels();
     loadProfile();
     loadFamily();
+    loadFamilyProfiles();
     loadNotifications();
     startNotifPolling();
     maybeShowPushOptin();
@@ -249,6 +253,7 @@
     gasGet({ action: 'getDocuments', email: getEmail() })
       .then(function (data) {
         var docs = (data && data.documents) || [];
+        clientDocsCache = docs; // for per-sub-profile document reveal
         var policies = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() === 'admin'; });
         var uploads = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() !== 'admin'; });
         renderList(pol, policies, 'No policies shared yet.');
@@ -507,31 +512,10 @@
     var openClaims = family.claims.filter(function (c) { return !isClaimDone(c.status); }).length;
     $('familyActiveClaims').textContent = String(openClaims);
 
-    renderMemberList();
     renderMemberTabs();
     renderTimeline();
     renderPoliciesLedger();
     renderClaims();
-  }
-
-  // The editable roster of family members inside the "Family members" card.
-  function renderMemberList() {
-    var ul = $('familyMemberList');
-    ul.innerHTML = '';
-    if (!family.profiles.length) { ul.appendChild(el('li', 'portal-empty', 'No family members yet.')); return; }
-    family.profiles.forEach(function (p) {
-      var li = el('li', 'portal-member-row');
-      var box = el('div', 'portal-member-info');
-      box.appendChild(el('span', 'portal-member-name', p.name || 'Member'));
-      if (p.relationship) { box.appendChild(el('span', 'portal-member-rel', p.relationship)); }
-      li.appendChild(box);
-      var del = el('button', 'portal-doc-del', 'Remove');
-      del.type = 'button';
-      del.setAttribute('aria-label', 'Remove ' + (p.name || 'member'));
-      del.addEventListener('click', function () { deleteMember(p, del); });
-      li.appendChild(del);
-      ul.appendChild(li);
-    });
   }
 
   function renderMemberTabs() {
@@ -632,51 +616,6 @@
       li.appendChild(el('span', 'portal-claim-status' + (done ? ' is-done' : ''), c.status || 'In progress'));
       ul.appendChild(li);
     });
-  }
-
-  // ---- add / remove family members ----
-  function showMemberForm(show) {
-    $('addMemberForm').hidden = !show;
-    $('addMemberBtn').hidden = show;
-    $('memberErr').hidden = true;
-    if (show) { $('memberName').focus(); }
-  }
-
-  $('addMemberBtn').addEventListener('click', function () { showMemberForm(true); });
-  $('memberCancelBtn').addEventListener('click', function () { $('addMemberForm').reset(); showMemberForm(false); });
-
-  $('addMemberForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var err = $('memberErr'); err.hidden = true;
-    var name = $('memberName').value.trim();
-    var rel = $('memberRelationship').value;
-    if (name.length < 2) { return fieldErr(err, 'Please enter the person\'s name.'); }
-
-    var btn = $('memberSaveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
-    // Small payload → JSONP GET (like deleteDocument) so we can read the reply.
-    gasGet({ action: 'addProfile', email: getEmail(), name: name, relationship: rel })
-      .then(function (data) {
-        if (data && data.status === 'success') {
-          $('addMemberForm').reset(); showMemberForm(false);
-          status('ok', 'Added ' + name + '.');
-          loadFamily();
-        } else {
-          fieldErr(err, (data && data.message) || 'Could not add. Please try again.');
-        }
-      })
-      .catch(function (e2) { fieldErr(err, e2.message || 'Network error. Please try again.'); })
-      .then(function () { btn.disabled = false; btn.textContent = 'Save member'; });
-  });
-
-  function deleteMember(p, btn) {
-    if (!window.confirm('Remove ' + (p.name || 'this member') + ' from your family list?')) { return; }
-    btn.disabled = true; btn.textContent = 'Removing…';
-    gasGet({ action: 'deleteProfile', email: getEmail(), profileId: p.profileId })
-      .then(function (data) {
-        if (data && data.status === 'success') { status('ok', 'Removed ' + (p.name || 'member') + '.'); loadFamily(); }
-        else { status('err', (data && data.message) || 'Could not remove.'); btn.disabled = false; btn.textContent = 'Remove'; }
-      })
-      .catch(function (e2) { status('err', e2.message || 'Could not remove.'); btn.disabled = false; btn.textContent = 'Remove'; });
   }
 
   // ---- family wiring ----
@@ -1034,6 +973,187 @@
   });
 
   // ============================================================
+  // FAMILY SUB-PROFILES (relational accounts + shared modal)
+  //   One modal, used by both the admin (for any client) and the client (for
+  //   themselves). Backend: createSubProfile/updateSubProfile/deleteSubProfile/
+  //   getSubProfiles. Deleting a profile never touches its uploaded documents.
+  // ============================================================
+  var subCtx = null;         // { mode, parentEmail, parentName, isAdmin, profile }
+  var spFile = null;         // staged file in the modal
+  var clientDocsCache = [];  // this client's docs, for per-sub-profile reveal
+
+  function openSubProfileModal(ctx) {
+    subCtx = ctx; spFile = null;
+    var isEdit = ctx.mode === 'edit', p = ctx.profile || {};
+    $('subProfileTitle').textContent = isEdit
+      ? ('Editing profile: ' + (p.name || 'member'))
+      : ('Making new profile for ' + (ctx.parentName || 'this account'));
+    $('spName').value = isEdit ? (p.name || '') : '';
+    $('spDob').value = isEdit ? (p.dob || '') : '';
+    $('spEmail').value = isEdit ? (p.profileEmail || '') : '';
+    $('spPhone').value = isEdit ? (p.phone || '') : '';
+    $('spRelation').value = isEdit ? (p.relation || '') : '';
+    $('spFileName').textContent = ''; $('spError').hidden = true;
+    $('spSubmitBtn').disabled = false; $('spSubmitBtn').textContent = 'Submit';
+    // Delete only appears when editing an existing profile AND the requester is admin.
+    $('spDeleteBtn').hidden = !(isEdit && ctx.isAdmin);
+    $('modalSubProfile').hidden = false;
+    $('spName').focus();
+  }
+  function closeSubProfileModal() { $('modalSubProfile').hidden = true; subCtx = null; spFile = null; }
+
+  $('spFile').addEventListener('change', function () {
+    var f = this.files && this.files[0]; this.value = '';
+    if (!f) { return; }
+    if (f.size > MAX_FILE) { spFile = null; $('spFileName').textContent = ''; return fieldErr($('spError'), 'That file is larger than 5 MB.'); }
+    $('spError').hidden = true; spFile = f; $('spFileName').textContent = '✓ ' + f.name;
+  });
+  $('spCancelBtn').addEventListener('click', closeSubProfileModal);
+
+  $('subProfileForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!subCtx) { return; }
+    var err = $('spError'); err.hidden = true;
+    var name = $('spName').value.trim(), dob = $('spDob').value, email = $('spEmail').value.trim();
+    var phone = $('spPhone').value.trim(), relation = $('spRelation').value;
+    if (name.length < 2) { return fieldErr(err, 'Please enter a name.'); }
+    if (!dob) { return fieldErr(err, 'Please enter a date of birth.'); }
+    if (!EMAIL_RE.test(email)) { return fieldErr(err, 'Please enter a valid email address.'); }
+    if (phone && !/^[0-9]{10}$/.test(phone)) { return fieldErr(err, 'Phone must be 10 digits, or leave it blank.'); }
+    if (!relation) { return fieldErr(err, 'Please choose the relation.'); }
+
+    var btn = $('spSubmitBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+    var payload = { email: getEmail(), name: name, dob: dob, profileEmail: email, phone: phone, relation: relation };
+    if (subCtx.mode === 'create') { payload.action = 'createSubProfile'; payload.parentEmail = subCtx.parentEmail; }
+    else { payload.action = 'updateSubProfile'; payload.profileId = subCtx.profile.profileId; }
+
+    function fail(msg) { fieldErr(err, msg); btn.disabled = false; btn.textContent = 'Submit'; }
+
+    if (spFile) {
+      // A file won't fit in a JSONP GET → no-cors POST (opaque); refresh shortly after.
+      readB64(spFile).then(function (b64) {
+        payload.fileName = spFile.name; payload.mimeType = spFile.type || 'application/octet-stream'; payload.fileData = b64;
+        return gasUpload(payload);
+      }).then(function () {
+        var ctx = subCtx; closeSubProfileModal(); status('ok', 'Saved.');
+        setTimeout(function () { refreshAfterSubProfile(ctx); }, 1200);
+      }).catch(function (e2) { fail(e2.message || 'Could not save.'); });
+    } else {
+      gasGet(payload).then(function (data) {
+        if (data && data.status === 'success') { var ctx = subCtx; closeSubProfileModal(); status('ok', 'Saved.'); refreshAfterSubProfile(ctx); }
+        else { fail((data && data.message) || 'Could not save.'); }
+      }).catch(function (e2) { fail(e2.message || 'Network error.'); });
+    }
+  });
+
+  $('spDeleteBtn').addEventListener('click', function () {
+    if (!subCtx || subCtx.mode !== 'edit') { return; }
+    if (!window.confirm('Delete this profile? Their uploaded documents will NOT be removed.')) { return; }
+    var btn = this; btn.disabled = true; btn.textContent = 'Deleting…';
+    gasGet({ action: 'deleteSubProfile', email: getEmail(), profileId: subCtx.profile.profileId })
+      .then(function (data) {
+        if (data && data.status === 'success') { var ctx = subCtx; closeSubProfileModal(); status('ok', 'Profile deleted.'); refreshAfterSubProfile(ctx); }
+        else { status('err', (data && data.message) || 'Could not delete.'); }
+      })
+      .catch(function (e2) { status('err', e2.message || 'Could not delete.'); })
+      .then(function () { btn.disabled = false; btn.textContent = 'Delete'; });
+  });
+
+  function refreshAfterSubProfile(ctx) {
+    if (ctx && ctx.isAdmin) { reloadAdminSubProfiles(ctx.parentEmail); }
+    else { loadFamilyProfiles(); loadFamily(); }
+  }
+
+  // ---- client "Family Profiles" section ----
+  function loadFamilyProfiles() {
+    var wrap = $('familyProfilesList');
+    wrap.innerHTML = ''; wrap.appendChild(el('div', 'portal-empty', 'Loading…'));
+    gasGet({ action: 'getSubProfiles', email: getEmail(), parentEmail: getEmail() })
+      .then(function (data) { renderFamilyProfiles((data && data.status === 'success' && data.profiles) || []); })
+      .catch(function () { wrap.innerHTML = ''; wrap.appendChild(el('div', 'portal-empty', 'Could not load.')); });
+  }
+
+  function renderFamilyProfiles(profiles) {
+    var wrap = $('familyProfilesList');
+    wrap.innerHTML = '';
+    if (!profiles.length) { wrap.appendChild(el('div', 'portal-empty', 'No family members yet — add one to get started.')); return; }
+    profiles.forEach(function (p) {
+      var card = el('div', 'portal-famcard');
+      var head = el('div', 'portal-famcard-head');
+      var info = el('div', 'portal-famcard-info');
+      var nameRow = el('div', 'portal-famcard-name');
+      nameRow.appendChild(document.createTextNode(p.name || 'Member'));
+      if (p.relation) { nameRow.appendChild(el('span', 'portal-member-rel', p.relation)); }
+      info.appendChild(nameRow);
+      var meta = []; if (p.profileEmail) { meta.push(p.profileEmail); } if (p.dob) { meta.push('DOB ' + fmtDate(p.dob)); }
+      if (meta.length) { info.appendChild(el('div', 'portal-famcard-meta', meta.join(' · '))); }
+      head.appendChild(info);
+      var actions = el('div', 'portal-famcard-actions');
+      var docsBtn = el('button', 'portal-famcard-btn', 'Documents'); docsBtn.type = 'button';
+      var editBtn = el('button', 'portal-famcard-btn', 'Edit'); editBtn.type = 'button';
+      actions.appendChild(docsBtn); actions.appendChild(editBtn);
+      head.appendChild(actions);
+      card.appendChild(head);
+      var docsWrap = el('ul', 'portal-doclist portal-famcard-docs'); docsWrap.hidden = true;
+      card.appendChild(docsWrap);
+      editBtn.addEventListener('click', function () {
+        openSubProfileModal({ mode: 'edit', parentEmail: getEmail(), parentName: getName(), isAdmin: false, profile: p });
+      });
+      docsBtn.addEventListener('click', function () {
+        if (!docsWrap.hidden) { docsWrap.hidden = true; return; }
+        var docs = clientDocsCache.filter(function (d) { return String(d.profileId || '') === String(p.profileId) && p.profileId; });
+        docsWrap.innerHTML = '';
+        if (!docs.length) { docsWrap.appendChild(el('li', 'portal-empty', 'No documents for this member yet.')); }
+        else { docs.forEach(function (d) { docsWrap.appendChild(docRow(d)); }); }
+        docsWrap.hidden = false;
+      });
+      wrap.appendChild(card);
+    });
+  }
+
+  $('addFamilyProfileBtn').addEventListener('click', function () {
+    openSubProfileModal({ mode: 'create', parentEmail: getEmail(), parentName: getName(), isAdmin: false });
+  });
+
+  // ---- admin accordion helpers (used by userRow) ----
+  function loadAdminSubProfiles(u, accordion) {
+    accordion.innerHTML = ''; accordion.appendChild(el('div', 'portal-empty', 'Loading…'));
+    gasGet({ action: 'getSubProfiles', email: getEmail(), parentEmail: u.email })
+      .then(function (data) {
+        accordion.dataset.loaded = '1';
+        renderAdminSubProfiles(u, accordion, (data && data.status === 'success' && data.profiles) || []);
+      })
+      .catch(function () { accordion.innerHTML = ''; accordion.appendChild(el('div', 'portal-empty', 'Could not load.')); });
+  }
+  function renderAdminSubProfiles(u, accordion, profiles) {
+    accordion.innerHTML = '';
+    if (!profiles.length) { accordion.appendChild(el('div', 'portal-empty', 'No sub-profiles yet.')); return; }
+    profiles.forEach(function (p) {
+      var row = el('div', 'portal-subrow'); row.tabIndex = 0; row.setAttribute('role', 'button');
+      var info = el('div', 'portal-subrow-info');
+      var nm = el('div', 'portal-subrow-name'); nm.appendChild(document.createTextNode(p.name || 'Member'));
+      if (p.relation) { nm.appendChild(el('span', 'portal-member-rel', p.relation)); }
+      info.appendChild(nm);
+      var meta = [p.profileEmail, p.dob ? 'DOB ' + fmtDate(p.dob) : ''].filter(Boolean).join(' · ');
+      if (meta) { info.appendChild(el('div', 'portal-subrow-meta', meta)); }
+      row.appendChild(info);
+      row.appendChild(el('span', 'portal-subrow-edit', 'Edit ›'));
+      row.addEventListener('click', function () {
+        openSubProfileModal({ mode: 'edit', parentEmail: u.email, parentName: fullName(u) || u.email, isAdmin: true, profile: p });
+      });
+      accordion.appendChild(row);
+    });
+  }
+  function reloadAdminSubProfiles(parentEmail) {
+    var pe = (parentEmail || '').toLowerCase();
+    var acc = document.querySelector('.portal-subaccordion[data-parent="' + pe + '"]');
+    if (acc && !acc.hidden) {
+      var u = allUsers.filter(function (x) { return (x.email || '').toLowerCase() === pe; })[0] || { email: parentEmail };
+      loadAdminSubProfiles(u, acc);
+    }
+  }
+
+  // ============================================================
   // ADMIN DASHBOARD
   // ============================================================
   var adminFile = null;
@@ -1096,18 +1216,49 @@
   }
 
   function userRow(u) {
-    var li = el('li', 'portal-user-row');
-    li.tabIndex = 0; li.setAttribute('role', 'button');
-    var box = el('div');
+    var li = el('li', 'portal-user-li');
+
+    var row = el('div', 'portal-user-row');
+    row.tabIndex = 0; row.setAttribute('role', 'button');
+
+    var chevron = el('button', 'portal-user-chevron', '›'); chevron.type = 'button';
+    chevron.setAttribute('aria-label', 'Show family profiles');
+    row.appendChild(chevron);
+
+    var box = el('div', 'portal-user-box');
     box.appendChild(el('div', 'portal-user-name', fullName(u) || u.email));
     box.appendChild(el('div', 'portal-user-email', u.email));
-    li.appendChild(box);
-    li.appendChild(el('span', 'portal-user-view', 'View ›'));
+    row.appendChild(box);
+
+    var right = el('div', 'portal-user-actions');
+    var createBtn = el('button', 'portal-user-create', '＋ Create Profile'); createBtn.type = 'button';
+    right.appendChild(createBtn);
+    right.appendChild(el('span', 'portal-user-view', 'View ›'));
+    row.appendChild(right);
+
     if (selectedUser && (selectedUser.email || '').toLowerCase() === (u.email || '').toLowerCase()) {
-      li.classList.add('is-selected');
+      row.classList.add('is-selected');
     }
-    li.addEventListener('click', function () { viewClient(u); });
-    li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); viewClient(u); } });
+    row.addEventListener('click', function () { viewClient(u); });
+    row.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); viewClient(u); } });
+
+    // Nested accordion of this account's sub-profiles.
+    var accordion = el('div', 'portal-subaccordion'); accordion.hidden = true;
+    accordion.dataset.parent = (u.email || '').toLowerCase();
+    chevron.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var opening = accordion.hidden;
+      accordion.hidden = !opening;
+      li.classList.toggle('is-expanded', opening);
+      if (opening && accordion.dataset.loaded !== '1') { loadAdminSubProfiles(u, accordion); }
+    });
+    createBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      openSubProfileModal({ mode: 'create', parentEmail: u.email, parentName: fullName(u) || u.email, isAdmin: true });
+    });
+
+    li.appendChild(row);
+    li.appendChild(accordion);
     return li;
   }
 
