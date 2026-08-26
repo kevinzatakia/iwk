@@ -393,7 +393,7 @@
   // Google Apps Script web-app URL that receives enquiries and emails them to
   // Kevin (shared with the main site enquiry form). Shop enquiries send no
   // age; the endpoint treats age as optional.
-  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxCCZ0SPD5rJrCWs4jwlKD5F7RJFoCt-qGi5BW-8F5_K04HF1Yq8Ma3sR836eZ5oE3hSg/exec';
+  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzFBqQZCBJ7trrzwTFUq6aOwlXslRdXMyrcTE-QuPB_QYQIbimvnJ4ZCzgyNM9qBuQCXw/exec';
 
   function sendEnquiry(submit, err, container) {
     var assetParts = [];

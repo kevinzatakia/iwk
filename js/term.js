@@ -339,7 +339,7 @@
   var WA_NUM = '918369988285';
   // Shared website enquiry endpoint (also used by the Health form); it emails
   // Kevin and attaches the file when fileData is present.
-  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxCCZ0SPD5rJrCWs4jwlKD5F7RJFoCt-qGi5BW-8F5_K04HF1Yq8Ma3sR836eZ5oE3hSg/exec';
+  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzFBqQZCBJ7trrzwTFUq6aOwlXslRdXMyrcTE-QuPB_QYQIbimvnJ4ZCzgyNM9qBuQCXw/exec';
 
   function submitTerm(container, skipBtn, upBtn, err, withFile) {
     err.hidden = true;

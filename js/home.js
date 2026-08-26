@@ -334,7 +334,7 @@
   // Submit — send to Kevin server-side, then confirm
   // ===============================================================
   var WA_NUM = '918369988285';
-  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxCCZ0SPD5rJrCWs4jwlKD5F7RJFoCt-qGi5BW-8F5_K04HF1Yq8Ma3sR836eZ5oE3hSg/exec';
+  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzFBqQZCBJ7trrzwTFUq6aOwlXslRdXMyrcTE-QuPB_QYQIbimvnJ4ZCzgyNM9qBuQCXw/exec';
 
   function sendEnquiry(submit, err, container) {
     var s = formData.safety, r = formData.risks, c = formData.claims;
