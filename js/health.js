@@ -741,9 +741,8 @@
     soonWrap.appendChild(el('p', null, 'This insurer’s calculator is coming soon — tap “Send Enquiry” below and Kevin will share a personalised quote.'));
     [
       { id: 'nia', name: 'New India Assurance', live: true },
-      { id: 'star', name: 'Star Health', live: false },
+      { id: 'star', name: 'TATA', live: false },
       { id: 'hdfc', name: 'HDFC Ergo', live: false },
-      { id: 'care', name: 'Care', live: false }
     ].forEach(function (co) {
       var chip = el('button', 'calc-company' + (co.live ? ' is-active' : ''));
       chip.type = 'button';
