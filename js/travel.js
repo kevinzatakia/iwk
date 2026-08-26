@@ -500,7 +500,7 @@
 
   // Google Apps Script web-app URL that receives enquiries and emails them to
   // Kevin (shared with the main site enquiry form).
-  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxXTjDanx0ZdZExoP3-arcDQo0Wb9EbsZ6_BrDjuYIQxAcyRP42a8KkEHhhiEFg7pys6Q/exec';
+  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxCCZ0SPD5rJrCWs4jwlKD5F7RJFoCt-qGi5BW-8F5_K04HF1Yq8Ma3sR836eZ5oE3hSg/exec';
 
   function membersText() {
     return formData.members.map(function (m) { return m + ' (' + formData.ages[m] + ')'; }).join(', ');

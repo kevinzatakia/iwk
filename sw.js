@@ -18,7 +18,7 @@
 // The byte change makes every device detect the new worker, which then activates
 // immediately, purges old caches, and triggers the one-time reload in pwa.js.
 
-const CACHE_NAME = 'kevin-app-v13';
+const CACHE_NAME = 'kevin-app-v14';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting(); // Activate immediately — bypass the "waiting" phase.
