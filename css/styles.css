@@ -699,7 +699,8 @@ footer img { width: min(200px, 56vw); height: auto; display: block; margin: 0 au
   .field-grid { grid-template-columns: 1fr; }
   .nav img { height: 38px; }
   .nav-brand { gap: 7px; }
-  .nav-brand-name { font-size: 12px; }
+  /* Drop the wordmark on mobile — with it the nav buttons wrapped/stacked untidily. */
+  .nav-brand-name { display: none; }
   .nav-cta { padding: 9px 13px; }
   .nav-ig { display: none; }
   .hero-ctas .btn { flex: 1 1 auto; }

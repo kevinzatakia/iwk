@@ -173,13 +173,14 @@
     var carNo = document.createElement('input');
     carNo.className = 'f'; carNo.id = 'moCarNo'; carNo.autocomplete = 'off';
     carNo.placeholder = 'e.g. MH12AB1234';
-    carNo.maxLength = 10;
+    carNo.maxLength = 20;
     carNo.setAttribute('inputmode', 'text');
     carNo.setAttribute('autocapitalize', 'characters');
     if (formData.carNumber) carNo.value = formData.carNumber;
-    // Real-time: uppercase, block anything that isn't a letter/digit, cap at 10.
+    // Just uppercase for consistency — car numbers vary a lot (temporary, BH-series,
+    // spaces/hyphens, etc.), so we don't restrict the format.
     carNo.addEventListener('input', function () {
-      this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+      this.value = this.value.toUpperCase().slice(0, 20);
     });
     f.appendChild(carNo);
     fields.appendChild(f);
@@ -209,9 +210,9 @@
     var next = el('button', 'btn btn-primary mo-next', 'Next'); next.type = 'button';
     next.addEventListener('click', function () {
       var cn = carNo.value.trim().toUpperCase();
-      // Standard Indian plate, e.g. MH12AB1234 (state, RTO, series, unique no.).
-      if (!/^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$/.test(cn)) {
-        return fieldError(err, 'Please enter a valid vehicle number, e.g. MH12AB1234.');
+      // No format validation — car numbers vary a lot; just make sure one was entered.
+      if (!cn) {
+        return fieldError(err, 'Please enter your car number.');
       }
       if (formData.claim !== 'Yes' && formData.claim !== 'No') {
         return fieldError(err, 'Please tell us if there is a claim in the expiring policy.');
