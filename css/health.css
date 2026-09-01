@@ -113,6 +113,13 @@
 .yb-card.on { border-color: var(--green); background: var(--green-tint); }
 .yb-card.on .yb-card-title { color: var(--green-deep); }
 
+/* ---------- coverage-type cards (Individual vs Family Floater) ---------- */
+.yb-cover-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.yb-cover-card { flex-direction: column; align-items: flex-start; text-align: left; gap: 8px; }
+.yb-cover-sub { font-size: 12.5px; font-weight: 500; color: var(--ink-mute); line-height: 1.45; }
+.yb-cover-card.on .yb-cover-sub { color: var(--green-deep); }
+@media (max-width: 480px) { .yb-cover-cards { grid-template-columns: 1fr; } }
+
 /* ---------- sum insured grid (step 6) ---------- */
 .yb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .yb-si {

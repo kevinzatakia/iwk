@@ -22,6 +22,7 @@
     email: '',
     phone: '',
     age: null,
+    coverageType: null, // 'individual' or 'floater' — chosen before member selection
     members: [],        // expanded individuals, e.g. ['Self','Spouse','Son 1','Son 2']
     counts: {},         // { Son: 2, Daughter: 1 }
     ages: {},           // { 'Self': 30, 'Son 1': 5, ... }
@@ -37,8 +38,10 @@
   };
 
   // Ordered data steps (after the age step). Used for advancing and reset-on-edit.
-  var ORDER = ['ybStep2', 'ybStep3', 'ybStep4', 'ybStep5', 'ybStep6', 'ybStep7'];
+  // ybStepCov (coverage structure) comes first — before member selection.
+  var ORDER = ['ybStepCov', 'ybStep2', 'ybStep3', 'ybStep4', 'ybStep5', 'ybStep6', 'ybStep7'];
   var RENDERERS = {
+    ybStepCov: renderCoverageType,
     ybStep2: renderMembers,
     ybStep3: renderAges,
     ybStep4: renderZone,
@@ -48,6 +51,7 @@
   };
   // formData keys owned by each step, wiped when that step (or an earlier one) is edited.
   var OWNS = {
+    ybStepCov: ['coverageType'],
     ybStep2: ['members', 'counts'],
     ybStep3: ['ages'],
     ybStep4: ['zone'],
@@ -174,6 +178,41 @@
   });
 
   // ===============================================================
+  // STEP 1.5 — Coverage structure (Individual vs Family Floater)
+  // Chosen before member selection; drives how the member step behaves.
+  // ===============================================================
+  var COVERAGE = [
+    { value: 'individual', title: 'Individual Plan', icon: '👥',
+      sub: 'Dedicated cover — every person insured gets their own full Sum Insured.' },
+    { value: 'floater', title: 'Family Floater Plan', icon: '👨‍👩‍👧',
+      sub: 'Shared coverage. A single Sum Insured pool is shared across your entire family.' }
+  ];
+
+  function renderCoverageType(container) {
+    var active = activeOf(container);
+    active.textContent = '';
+    active.appendChild(el('label', 'yb-q', 'How would you like to structure your coverage?'));
+    var wrap = el('div', 'yb-cards yb-cover-cards');
+    COVERAGE.forEach(function (opt) {
+      var card = el('label', 'yb-card yb-cover-card' + (formData.coverageType === opt.value ? ' on' : ''));
+      var radio = document.createElement('input');
+      radio.type = 'radio'; radio.name = 'ybCoverage'; radio.value = opt.value;
+      radio.checked = formData.coverageType === opt.value;
+      radio.addEventListener('change', function () {
+        formData.coverageType = opt.value;
+        complete(container, 'Coverage', opt.title);
+        advanceFrom(container.id);
+      });
+      card.appendChild(radio);
+      card.appendChild(el('span', 'yb-card-ic', opt.icon));
+      card.appendChild(el('span', 'yb-card-title', opt.title));
+      card.appendChild(el('span', 'yb-cover-sub', opt.sub));
+      wrap.appendChild(card);
+    });
+    active.appendChild(wrap);
+  }
+
+  // ===============================================================
   // STEP 2 — Member selection
   // ===============================================================
   var MEMBER_TYPES = ['Self', 'Spouse', 'Son', 'Daughter', 'Father', 'Mother'];
@@ -196,6 +235,8 @@
       chosenTypes[t] = true;
     });
 
+    // "How many?" count rows for Son / Daughter (both Individual and Floater can
+    // cover several children — they differ only in how the Sum Insured applies).
     function renderCounts() {
       counts.textContent = '';
       COUNTED.forEach(function (t) {
@@ -513,9 +554,10 @@
   var DB = window.NIA_YUVA_DATA || null;
 
   // ── Core logic ─────────────────────────────────────────────────────────────
-  // Base rate via .find(), then modifiers in order: optional covers → floater
-  // discount → health parameters (summed across all adults) → long-term. GST is
-  // computed but NOT displayed (we return the pre-GST premium in `.premium`).
+  // Per member: base rate via .find() → floater discount → (adults only) that
+  // member's OWN health parameters; summed across members. Then optional-cover
+  // add-on and the long-term discount. Minors are never health-adjusted. GST is
+  // computed but NOT displayed (Nil GST; we return the pre-GST premium in `.premium`).
   function calculateFinalPremium(input, db) {
     var mods = db.modifiers || {}, covers = db.optionalCovers || {};
 
@@ -531,38 +573,52 @@
       if (!r) { throw new Error('No premium rate for a member aged ' + age + '.'); }
       return r.basePremium;
     }
-    var ages = input.memberAges || [];
-    if (!ages.length) { throw new Error('No members to price.'); }
-    var base = 0;
-    ages.forEach(function (age) { base += memberRate(age); });
+    // One entry per covered member: { age, metrics|null }. Health metrics exist
+    // for adults (18+) only; minors carry null and are never health-adjusted.
+    var members = input.members || [];
+    if (!members.length) { throw new Error('No members to price.'); }
+    var hparams = mods.healthParameters || {};
 
-    // Optional covers (enhanced maternity — Platinum only in practice).
+    // Family/floater discount by member count (capped at 4). Strictly bypassed
+    // for an Individual plan — it only ever applies to a Family Floater of 2+.
+    var floaterDisc = 0;
+    if (input.coverageType === 'floater' && members.length > 1) {
+      var count = Math.min(members.length, 4);
+      floaterDisc = (mods.floaterDiscount && mods.floaterDiscount[String(count)]) || 0;
+    }
+
+    // Per-member premium: base rate → floater discount → (adults only) that
+    // member's OWN health modifier, then summed across members. A minor's premium
+    // only ever gets the floater discount — it is never touched by health params.
+    var base = 0;      // sum of raw base rates (pre-discount), for reporting
+    var running = 0;   // sum of per-member adjusted premiums
+    members.forEach(function (mem) {
+      var mp = memberRate(mem.age);
+      base += mp;
+      mp *= (1 - floaterDisc);
+      if (mem.age >= 18 && mem.metrics) {
+        var a = mem.metrics, hp = 0;
+        if (a.bmi != null) {
+          if (a.bmi >= 18.5 && a.bmi < 32) { hp += (hparams.bmiHealthy || 0); }
+          else if (a.bmi > 32) { hp += (hparams.bmiOverweight || 0); }
+        }
+        hp += a.isDiabeticOverLimit ? (hparams.diabetic || 0) : (hparams.nonDiabetic || 0);
+        hp += a.isHypertensiveOverLimit ? (hparams.hypertensive || 0) : (hparams.nonHypertensive || 0);
+        if (!a.hospitalizedLast3Years) { hp += (hparams.noHospitalization3Yrs || 0); }
+        mp *= (1 + hp);
+      }
+      running += mp;
+    });
+
+    // Optional covers (enhanced maternity — Platinum only in practice; Basic
+    // never triggers it). Added after members, before the long-term discount.
     var addon = 0;
     if (input.wantsMaternity && input.maternityLimit && covers.enhancedMaternity) {
-      var mat = covers.enhancedMaternity.find(function (m) { return m.zone === input.zone && m.limit === input.maternityLimit; });
+      var mat = covers.enhancedMaternity.find(function (mm) { return mm.zone === input.zone && mm.limit === input.maternityLimit; });
       if (mat) { addon = mat.annualPremium; }
     }
     var baseWithAddons = base + addon;
-    var running = baseWithAddons;
-
-    // Family/floater discount by member count (capped at 4).
-    var count = Math.min(Math.max(ages.length, 1), 4);
-    var floaterDisc = (mods.floaterDiscount && mods.floaterDiscount[String(count)]) || 0;
-    running *= (1 - floaterDisc);
-
-    // Health parameters — evaluated PER adult member (18+), then summed across
-    // ALL adults (discounts negative, loadings positive). Minors are excluded.
-    var hp = 0, m = mods.healthParameters || {};
-    (input.adults || []).forEach(function (a) {
-      if (a.bmi != null) {
-        if (a.bmi >= 18.5 && a.bmi < 32) { hp += (m.bmiHealthy || 0); }
-        else if (a.bmi > 32) { hp += (m.bmiOverweight || 0); }
-      }
-      hp += a.isDiabeticOverLimit ? (m.diabetic || 0) : (m.nonDiabetic || 0);
-      hp += a.isHypertensiveOverLimit ? (m.hypertensive || 0) : (m.nonHypertensive || 0);
-      if (!a.hospitalizedLast3Years) { hp += (m.noHospitalization3Yrs || 0); }
-    });
-    running *= (1 + hp);
+    running += addon;
 
     // Long-term discount (by policy term). Loyalty discount removed.
     var ltDisc = (mods.longTermDiscount && mods.longTermDiscount[String(input.policyTermYears || 1)]) || 0;
@@ -787,10 +843,14 @@
     var siLabel = siDisplay(formData.sumInsured);
     lastEstimate = null;
 
-    // Every covered member's age — the base premium is summed across all of them.
+    // One entry per covered member: age + that member's own health metrics
+    // (null for minors). The premium is summed across all of them.
     var ages = formData.ages || {};
-    var memberAges = (formData.members || []).map(function (m) { return ages[m]; }).filter(function (a) { return a != null; });
-    var memberCount = memberAges.length;
+    var hm = formData.healthMetrics || {};
+    var members = (formData.members || []).map(function (name) {
+      return { age: ages[name], metrics: hm[name] || null };
+    }).filter(function (x) { return x.age != null; });
+    var memberCount = members.length;
 
     wrap.appendChild(el('p', 'calc-basis',
       'New India Assurance — Yuva Bharat (Basic) · ' + siLabel + ' · ' + (formData.zone || '—')
@@ -801,16 +861,13 @@
       return;
     }
 
-    // One health-parameter entry per adult member (minors were never asked).
-    var adults = Object.keys(formData.healthMetrics || {}).map(function (k) { return formData.healthMetrics[k]; });
-
     var out = null;
     if (zone != null && si != null && memberCount) {
       try {
         out = calculateFinalPremium({
           planType: PLAN_TYPE, zone: zone, sumInsured: si,
-          memberAges: memberAges,
-          adults: adults,
+          members: members,
+          coverageType: formData.coverageType,
           policyTermYears: formData.policyTermYears
         }, DB);
       } catch (e) { out = null; }
@@ -834,7 +891,7 @@
     if (out.discountAmount > 0) {
       results.appendChild(el('p', 'calc-savings', '✓ Includes ' + inr(out.discountAmount) + ' in discounts (floater, health & long-term).'));
     }
-    results.appendChild(el('p', 'calc-disclaimer', 'This is an indicative premium. Final premium is subject to underwriting and applicable GST.'));
+    results.appendChild(el('p', 'calc-disclaimer', 'This is an indicative premium — Nil GST applicable. Final premium is subject to underwriting.'));
 
     var wa = el('a', 'btn btn-ghost calc-wa', 'Share this quote with Kevin on WhatsApp');
     wa.target = '_blank'; wa.rel = 'noopener';
@@ -877,12 +934,14 @@
   // Posts the enquiry to the Apps Script endpoint (emails Kevin). Health answers
   // ride in the one-line "products"/"health" fields (the endpoint strips line breaks).
   function postEnquiry() {
-    var products = 'Health cover — Members: ' + membersText()
+    var coverLabel = formData.coverageType === 'individual' ? 'Individual' : (formData.coverageType === 'floater' ? 'Family Floater' : '—');
+    var products = 'Health cover — Coverage: ' + coverLabel
+      + ' | Members: ' + membersText()
       + ' | Zone: ' + formData.zone
       + ' | Intent: ' + formData.intent
       + ' | Sum insured: ₹' + formData.sumInsured
       + ' | Policy term: ' + (formData.policyTermYears || 1) + 'yr'
-      + (lastEstimate ? ' | Est. premium: ₹' + lastEstimate.premium + ' (GST extra)' : '');
+      + (lastEstimate ? ' | Est. premium: ₹' + lastEstimate.premium + ' (Nil GST)' : '');
 
     var healthText = formData.conditions.join(', ') || 'None mentioned';
     var metrics = healthMetricsText();
@@ -931,6 +990,7 @@
     row('Name', formData.name);
     row('Contact', formData.phone + ' · ' + formData.email);
     row('Applicant age', formData.age + ' years');
+    row('Coverage', formData.coverageType === 'individual' ? 'Individual' : 'Family Floater');
     row('Members', membersText());
     row('Zone', formData.zone);
     row('Intent', formData.intent);
@@ -954,7 +1014,8 @@
   // ===============================================================
   restartBtn.addEventListener('click', function () {
     formData = {
-      name: '', email: '', phone: '', age: null, members: [], counts: {}, ages: {},
+      name: '', email: '', phone: '', age: null, coverageType: null,
+      members: [], counts: {}, ages: {},
       zone: null, intent: null, sumInsured: null, conditions: [],
       policyTermYears: 1, healthMetrics: {}
     };
