@@ -26,6 +26,11 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # Policy forms moved into /policies/ (Sept 2026). 301 the old URLs — both the
+  # clean "/motor" form and any legacy "/motor.html" — to the new location so
+  # links already shared (Instagram / WhatsApp / QR) keep working.
+  RewriteRule ^(enquiry|fire|guaranteed-returns|health|home|motor|personal-accident|shop|term|travel|workmen)(\.html)?/?$ /policies/$1 [R=301,L]
+
   # Redirect explicit .html requests to the extensionless URL (301).
   RewriteCond %{THE_REQUEST} \s/+(.+?)\.html[\s?] [NC]
   RewriteRule ^ /%1 [R=301,L]

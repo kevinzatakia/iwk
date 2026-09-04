@@ -50,16 +50,16 @@ function el(tag, cls, text) {
   // Policies with their own dedicated multi-step enquiry page. Each is exclusive:
   // selecting one clears and locks every other option (unclick it to go back).
   var EXCLUSIVE_PAGES = {
-    'Guaranteed Returns Plans': 'guaranteed-returns.html',
-    'Health': 'health.html',
-    'Term': 'term.html',
-    'Workmen Compensation': 'workmen.html',
-    'Personal Accident': 'personal-accident.html',
-    'Home': 'home.html',
-    'Travel': 'travel.html',
-    'Motor': 'motor.html',
-    'Fire': 'fire.html',
-    'Shop': 'shop.html'
+    'Guaranteed Returns Plans': 'policies/guaranteed-returns.html',
+    'Health': 'policies/health.html',
+    'Term': 'policies/term.html',
+    'Workmen Compensation': 'policies/workmen.html',
+    'Personal Accident': 'policies/personal-accident.html',
+    'Home': 'policies/home.html',
+    'Travel': 'policies/travel.html',
+    'Motor': 'policies/motor.html',
+    'Fire': 'policies/fire.html',
+    'Shop': 'policies/shop.html'
   };
   // Returns the exclusive policy currently selected, or null.
   function exclusiveSelected() {
@@ -254,11 +254,11 @@ function el(tag, cls, text) {
   function enquiryLink() {
     var active = exclusiveSelected();
     if (active && state.selected.length === 1) { return EXCLUSIVE_PAGES[active]; }
-    if (state.unsure) { return 'enquiry.html?unsure=1'; }
+    if (state.unsure) { return 'policies/enquiry.html?unsure=1'; }
     if (state.selected.length) {
-      return 'enquiry.html?products=' + encodeURIComponent(state.selected.join(','));
+      return 'policies/enquiry.html?products=' + encodeURIComponent(state.selected.join(','));
     }
-    return 'enquiry.html';
+    return 'policies/enquiry.html';
   }
 
   function waLink() {

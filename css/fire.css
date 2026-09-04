@@ -73,7 +73,72 @@
 }
 .fr-total-amt { color: var(--green); }
 
-/* ---------- hypothecation pills (step 5) ---------- */
+/* ---------- dropdowns (occupancy + earthquake zone) ----------
+   A <select> isn't matched by the input.f / textarea.f rules in styles.css, so
+   mirror that box styling here and add a custom caret + green focus ring. */
+select.f {
+  width: 100%; padding: 13px 44px 13px 15px; border-radius: 12px;
+  border: 1.5px solid var(--line); background-color: var(--ivory);
+  font-size: 14.5px; font-family: var(--sans); color: var(--ink);
+  line-height: 1.3; cursor: pointer;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  transition: border-color .15s, box-shadow .15s, background-color .15s;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9' fill='none' stroke='%2317694A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 15px center;
+}
+select.f:hover { border-color: var(--green); }
+select.f:focus {
+  outline: none; border-color: var(--green); background-color: #fff;
+  box-shadow: 0 0 0 4px rgba(23, 105, 74, .12);
+}
+select.f.is-placeholder { color: var(--ink-mute); }
+.fr-occ-other { margin-top: 14px; }
+.fr-occ-other .f-label { display: block; margin-bottom: 6px; }
+/* Sub-heading (e.g. "Building type") within a step. */
+.fr-sub { display: block; font-family: var(--serif); font-weight: 700; font-size: 15px; color: var(--ink); margin: 18px 0 10px; }
+
+/* ---------- risk mitigation (step 5) ---------- */
+.fr-mit { display: grid; gap: 12px; }
+.fr-mit-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 12px 14px; border-radius: 12px; background: var(--ivory); border: 1px solid var(--line);
+}
+.fr-mit-q { font-size: 13.5px; font-weight: 600; color: var(--ink-soft); line-height: 1.35; }
+.fr-mit-pills { display: flex; gap: 8px; flex-shrink: 0; }
+.fr-mini-pill {
+  cursor: pointer; padding: 7px 16px; border-radius: 999px; border: 1.5px solid var(--line);
+  background: #fff; font-weight: 700; font-size: 13px; color: var(--ink-soft); transition: all .15s ease;
+}
+.fr-mini-pill:hover { border-color: var(--green); }
+.fr-mini-pill input { position: absolute; opacity: 0; pointer-events: none; }
+.fr-mini-pill.on { border-color: var(--green); background: var(--green); color: #fff; }
+
+/* ---------- quote receipt (step 7) ---------- */
+.fr-quote { background: #fff; border: 1px solid var(--green); border-radius: 18px; box-shadow: var(--shadow); padding: clamp(20px, 4vw, 28px); margin-top: 16px; }
+.fr-quote.hidden { display: none !important; }
+.fr-quote-head { text-align: center; margin-bottom: 18px; }
+.fr-quote-head .eyebrow {
+  display: inline-block; font-size: 11.5px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--green); background: var(--green-tint);
+  padding: 5px 12px; border-radius: 999px;
+}
+.fr-quote-head h3 { font-family: var(--serif); font-size: 23px; font-weight: 700; color: var(--green-deep); margin-top: 12px; }
+.fr-receipt { display: grid; gap: 9px; padding: 16px; border-radius: 14px; background: var(--ivory); border: 1px solid var(--line); }
+.fr-receipt-row { display: flex; justify-content: space-between; gap: 14px; font-size: 14px; }
+.fr-receipt-row dt { color: var(--ink-mute); font-weight: 600; }
+.fr-receipt-row dd { margin: 0; color: var(--ink); font-weight: 700; text-align: right; }
+.fr-receipt-row.discount dd { color: var(--green); }
+.fr-receipt-row.loading dd { color: #b42318; }
+.fr-receipt-final {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+  margin-top: 14px; padding-top: 14px; border-top: 1.5px dashed var(--line);
+}
+.fr-receipt-final dt { font-family: var(--serif); font-weight: 700; font-size: 16px; color: var(--green-deep); }
+.fr-receipt-final dd { margin: 0; font-family: var(--serif); font-weight: 700; font-size: clamp(22px, 5vw, 28px); color: var(--green); }
+.fr-disclaimer { margin-top: 14px; font-size: 12px; color: var(--ink-mute); line-height: 1.5; text-align: center; }
+.fr-quote .btn { width: 100%; margin-top: 18px; }
+
+/* ---------- hypothecation pills (step 6) ---------- */
 .fr-pills { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .fr-pill {
   display: block; text-align: center; cursor: pointer; padding: 16px; border-radius: 14px;

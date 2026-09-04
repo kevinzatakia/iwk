@@ -1,0 +1,17 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/enquiry", "destination": "/policies/enquiry", "permanent": true },
+    { "source": "/fire", "destination": "/policies/fire", "permanent": true },
+    { "source": "/guaranteed-returns", "destination": "/policies/guaranteed-returns", "permanent": true },
+    { "source": "/health", "destination": "/policies/health", "permanent": true },
+    { "source": "/home", "destination": "/policies/home", "permanent": true },
+    { "source": "/motor", "destination": "/policies/motor", "permanent": true },
+    { "source": "/personal-accident", "destination": "/policies/personal-accident", "permanent": true },
+    { "source": "/shop", "destination": "/policies/shop", "permanent": true },
+    { "source": "/term", "destination": "/policies/term", "permanent": true },
+    { "source": "/travel", "destination": "/policies/travel", "permanent": true },
+    { "source": "/workmen", "destination": "/policies/workmen", "permanent": true }
+  ]
+}
