@@ -504,11 +504,23 @@
   }
 
   function renderFamilyHub() {
-    // Aggregate stats (always family-wide, regardless of the active filter).
-    var totalCover = family.policies.reduce(function (s, p) { return s + (Number(p.sumInsured) || 0); }, 0);
+    // Total Family Aggregate Sum Insured = the POC's manually-set SI + every
+    // dependent Profile's SI (person-level figures the admin maintains — no longer
+    // derived from individual policy rows).
+    var acctSI = Number(family.accountSumInsured) || 0;
+    var profSI = family.profiles.reduce(function (s, p) { return s + (Number(p.sumInsured) || 0); }, 0);
+    var totalCover = acctSI + profSI;
     $('familyTotalCover').textContent = totalCover ? inr(totalCover) : '—';
-    $('familyCoverSub').textContent = family.policies.length +
-      (family.policies.length === 1 ? ' active policy' : ' active policies');
+    if (familyFilter === 'all') {
+      // Breakdown: the POC's own cover shown next to the aggregate.
+      $('familyCoverSub').textContent = 'Your cover ' + (acctSI ? inr(acctSI) : '—') +
+        ' · ' + family.profiles.length + ' member' + (family.profiles.length === 1 ? '' : 's');
+    } else {
+      var mp = family.profiles.filter(function (p) { return p.profileId === familyFilter; })[0];
+      var msi = mp ? (Number(mp.sumInsured) || 0) : 0;
+      $('familyCoverSub').textContent = (mp ? (mp.name || 'Member') : 'Member') +
+        ': ' + (msi ? inr(msi) + ' cover' : 'no cover set');
+    }
     var openClaims = family.claims.filter(function (c) { return !isClaimDone(c.status); }).length;
     $('familyActiveClaims').textContent = String(openClaims);
 
@@ -979,11 +991,11 @@
   //   getSubProfiles. Deleting a profile never touches its uploaded documents.
   // ============================================================
   var subCtx = null;         // { mode, parentEmail, parentName, isAdmin, profile }
-  var spFile = null;         // staged file in the modal
+  var spStaged = [];         // staged files [{ file, expiry }] in the modal
   var clientDocsCache = [];  // this client's docs, for per-sub-profile reveal
 
   function openSubProfileModal(ctx) {
-    subCtx = ctx; spFile = null;
+    subCtx = ctx; spStaged = [];
     var isEdit = ctx.mode === 'edit', p = ctx.profile || {};
     $('subProfileTitle').textContent = isEdit
       ? ('Editing profile: ' + (p.name || 'member'))
@@ -993,21 +1005,57 @@
     $('spEmail').value = isEdit ? (p.profileEmail || '') : '';
     $('spPhone').value = isEdit ? (p.phone || '') : '';
     $('spRelation').value = isEdit ? (p.relation || '') : '';
-    $('spFileName').textContent = ''; $('spError').hidden = true;
+    $('spSumInsured').value = (isEdit && p.sumInsured) ? String(p.sumInsured) : '';
+    renderSpStaged(); $('spError').hidden = true;
     $('spSubmitBtn').disabled = false; $('spSubmitBtn').textContent = 'Submit';
     // Delete only appears when editing an existing profile AND the requester is admin.
     $('spDeleteBtn').hidden = !(isEdit && ctx.isAdmin);
     $('modalSubProfile').hidden = false;
     $('spName').focus();
   }
-  function closeSubProfileModal() { $('modalSubProfile').hidden = true; subCtx = null; spFile = null; }
+  function closeSubProfileModal() { $('modalSubProfile').hidden = true; subCtx = null; spStaged = []; renderSpStaged(); }
 
-  $('spFile').addEventListener('change', function () {
-    var f = this.files && this.files[0]; this.value = '';
-    if (!f) { return; }
-    if (f.size > MAX_FILE) { spFile = null; $('spFileName').textContent = ''; return fieldErr($('spError'), 'That file is larger than 5 MB.'); }
-    $('spError').hidden = true; spFile = f; $('spFileName').textContent = '✓ ' + f.name;
-  });
+  // Multi-file drag-drop staging in the profile modal, each file with its expiry.
+  function renderSpStaged() {
+    var ul = $('spStaged'); if (!ul) { return; }
+    ul.innerHTML = '';
+    spStaged.forEach(function (item, i) {
+      var li = el('li', 'portal-staged-item');
+      var meta = el('div', 'portal-staged-meta');
+      meta.appendChild(el('span', 'portal-staged-name', item.file.name));
+      meta.appendChild(el('span', 'portal-staged-size', formatBytes(item.file.size)));
+      li.appendChild(meta);
+      var exp = document.createElement('input');
+      exp.type = 'date'; exp.className = 'f portal-staged-expiry'; exp.value = item.expiry || '';
+      exp.setAttribute('aria-label', 'Expiry date for ' + item.file.name);
+      exp.addEventListener('change', function () { item.expiry = this.value; });
+      li.appendChild(exp);
+      var rm = el('button', 'portal-staged-remove', '×'); rm.type = 'button';
+      rm.setAttribute('aria-label', 'Remove ' + item.file.name);
+      rm.addEventListener('click', function () { spStaged.splice(i, 1); renderSpStaged(); });
+      li.appendChild(rm);
+      ul.appendChild(li);
+    });
+  }
+  function addSpFiles(fileList) {
+    var rejected = 0;
+    Array.prototype.slice.call(fileList || []).forEach(function (f) {
+      if (f.size > MAX_FILE) { rejected++; return; }
+      if (!spStaged.some(function (s) { return s.file.name === f.name && s.file.size === f.size; })) {
+        spStaged.push({ file: f, expiry: '' });
+      }
+    });
+    if (rejected) { fieldErr($('spError'), rejected + ' file' + (rejected > 1 ? 's' : '') + ' over 5 MB skipped.'); }
+    else { $('spError').hidden = true; }
+    renderSpStaged();
+  }
+  $('spFile').addEventListener('change', function () { addSpFiles(this.files); this.value = ''; });
+  (function () {
+    var dz = $('spDrop'); if (!dz) { return; }
+    ['dragenter', 'dragover'].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('is-drag'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('is-drag'); }); });
+    dz.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files) { addSpFiles(e.dataTransfer.files); } });
+  })();
   $('spCancelBtn').addEventListener('click', closeSubProfileModal);
 
   $('subProfileForm').addEventListener('submit', function (e) {
@@ -1023,28 +1071,43 @@
     if (!relation) { return fieldErr(err, 'Please choose the relation.'); }
 
     var btn = $('spSubmitBtn'); btn.disabled = true; btn.textContent = 'Saving…';
-    var payload = { email: getEmail(), name: name, dob: dob, profileEmail: email, phone: phone, relation: relation };
+    var sumInsured = parseInt(($('spSumInsured').value || '').replace(/[^\d]/g, ''), 10) || 0;
+    var payload = { email: getEmail(), name: name, dob: dob, profileEmail: email, phone: phone, relation: relation, sumInsured: sumInsured };
     if (subCtx.mode === 'create') { payload.action = 'createSubProfile'; payload.parentEmail = subCtx.parentEmail; }
     else { payload.action = 'updateSubProfile'; payload.profileId = subCtx.profile.profileId; }
 
     function fail(msg) { fieldErr(err, msg); btn.disabled = false; btn.textContent = 'Submit'; }
 
     function proceed() {
-      if (spFile) {
-        // A file won't fit in a JSONP GET → no-cors POST (opaque); refresh shortly after.
-        readB64(spFile).then(function (b64) {
-          payload.fileName = spFile.name; payload.mimeType = spFile.type || 'application/octet-stream'; payload.fileData = b64;
-          return gasUpload(payload);
-        }).then(function () {
-          var ctx = subCtx; closeSubProfileModal(); status('ok', 'Saved.');
-          setTimeout(function () { refreshAfterSubProfile(ctx); }, 1200);
-        }).catch(function (e2) { fail(e2.message || 'Could not save.'); });
-      } else {
-        gasGet(payload).then(function (data) {
-          if (data && data.status === 'success') { var ctx = subCtx; closeSubProfileModal(); status('ok', 'Saved.'); refreshAfterSubProfile(ctx); }
-          else { fail((data && data.message) || 'Could not save.'); }
-        }).catch(function (e2) { fail(e2.message || 'Network error.'); });
+      // Every attached document needs an expiry date (like "Send a policy").
+      if (spStaged.some(function (s) { return !s.expiry; })) { return fail('Please set an expiry date for every document.'); }
+      // 1) Create/update the profile (small payload → readable JSONP), then
+      // 2) upload each staged file separately (base64 needs a no-cors POST),
+      //    linked to the profile with its own expiry.
+      gasGet(payload).then(function (data) {
+        if (!data || data.status !== 'success') { return fail((data && data.message) || 'Could not save.'); }
+        var profileId = (subCtx.mode === 'create') ? data.profileId : subCtx.profile.profileId;
+        uploadSpFiles(profileId, 0);
+      }).catch(function (e2) { fail(e2.message || 'Network error.'); });
+    }
+
+    // Uploads staged files one-by-one, then closes + refreshes.
+    function uploadSpFiles(profileId, idx) {
+      if (idx >= spStaged.length) {
+        var hadFiles = spStaged.length > 0, ctx = subCtx;
+        closeSubProfileModal(); status('ok', 'Saved.');
+        setTimeout(function () { refreshAfterSubProfile(ctx); }, hadFiles ? 1200 : 0);
+        return;
       }
+      var item = spStaged[idx];
+      readB64(item.file).then(function (b64) {
+        var up = { email: getEmail(), profileId: profileId, expiryDate: item.expiry,
+          fileName: item.file.name, mimeType: item.file.type || 'application/octet-stream', fileData: b64 };
+        if (subCtx.isAdmin) { up.action = 'adminUpload'; up.targetEmail = subCtx.parentEmail; }
+        else { up.action = 'clientUpload'; up.profileEmail = ($('spEmail').value || '').trim().toLowerCase(); }
+        return gasUpload(up);
+      }).then(function () { uploadSpFiles(profileId, idx + 1); })
+        .catch(function (e2) { fail((e2 && e2.message) || 'A document failed to upload.'); });
     }
 
     // On create, read the sheet first to catch an individual already added under
@@ -1162,7 +1225,7 @@
       var nm = el('div', 'portal-subrow-name'); nm.appendChild(document.createTextNode(p.name || 'Member'));
       if (p.relation) { nm.appendChild(el('span', 'portal-member-rel', p.relation)); }
       info.appendChild(nm);
-      var meta = [p.profileEmail, p.dob ? 'DOB ' + fmtDate(p.dob) : '', docCountLabel(p.docCount)].filter(Boolean).join(' · ');
+      var meta = [p.profileEmail, p.dob ? 'DOB ' + fmtDate(p.dob) : '', p.sumInsured ? 'SI ' + inr(p.sumInsured) : '', docCountLabel(p.docCount)].filter(Boolean).join(' · ');
       if (meta) { info.appendChild(el('div', 'portal-subrow-meta', meta)); }
       row.appendChild(info);
       var actions = el('div', 'portal-subrow-actions');
@@ -1182,6 +1245,7 @@
   function viewSubProfile(u, sub) {
     selectedUser = u; // keep the parent linked (don't re-render — that would collapse the accordion)
     $('viewingName').textContent = sub.name || 'profile';
+    $('viewAccountSIRow').hidden = true; // account SI is set on the account, not per profile
     $('adminDocsLabel').textContent = '📋 Policies';
     $('clientDocsLabel').textContent = '📎 Documents';
     $('viewingFolder').hidden = false;
@@ -1361,6 +1425,13 @@
     $('clientDocsLabel').textContent = '📎 Uploaded by client';
     $('viewingName').textContent = fullName(u) || u.email;
     $('viewingFolder').hidden = false;
+    // Account-level Sum Insured editor (this view only, not sub-profiles).
+    $('viewAccountSIRow').hidden = false;
+    $('viewAccountSI').value = ''; $('viewAccountSIHint').textContent = 'Loading…';
+    gasGet({ action: 'getProfile', email: u.email }).then(function (r) {
+      if (r && r.status === 'success' && r.sumInsured) { $('viewAccountSI').value = String(r.sumInsured); }
+      $('viewAccountSIHint').textContent = '';
+    }).catch(function () { $('viewAccountSIHint').textContent = ''; });
     loadClientDocs(u.email);
   }
 
@@ -1383,7 +1454,25 @@
       });
   }
 
-  // Read-only document rows for the admin viewing panel (no delete).
+  // Generic confirm dialog → Promise<boolean>.
+  var confirmResolver = null;
+  function portalConfirm(message, opts) {
+    opts = opts || {};
+    $('confirmMsg').textContent = message;
+    $('confirmTitle').textContent = opts.title || 'Are you sure?';
+    $('confirmYes').textContent = opts.yes || 'Remove';
+    $('modalConfirm').hidden = false;
+    return new Promise(function (resolve) { confirmResolver = resolve; });
+  }
+  function closeConfirm(val) {
+    $('modalConfirm').hidden = true;
+    if (confirmResolver) { confirmResolver(val); confirmResolver = null; }
+  }
+  $('confirmYes').addEventListener('click', function () { closeConfirm(true); });
+  $('confirmNo').addEventListener('click', function () { closeConfirm(false); });
+
+  // Document rows for the admin viewing panel: shows expiry, and a soft-delete
+  // (trash) that unlinks the document from the user's view (physical file kept).
   function renderViewList(ul, docs, emptyMsg) {
     ul.innerHTML = '';
     if (!docs.length) { ul.appendChild(el('li', 'portal-empty', emptyMsg)); return; }
@@ -1393,8 +1482,29 @@
       var a = el('a', null, d.fileName || 'Document');
       a.href = d.fileURL || '#'; a.target = '_blank'; a.rel = 'noopener';
       main.appendChild(a);
-      if (d.timestamp) { main.appendChild(el('span', 'portal-doc-meta', new Date(d.timestamp).toLocaleDateString())); }
+      var bits = [];
+      if (d.timestamp) { bits.push(new Date(d.timestamp).toLocaleDateString()); }
+      if (d.expiryDate) { bits.push('Expires ' + fmtDate(d.expiryDate)); }
+      if (bits.length) { main.appendChild(el('span', 'portal-doc-meta', bits.join(' · '))); }
       li.appendChild(main);
+      // Soft delete (admin). Small payload → JSONP GET returns a readable status.
+      var del = el('button', 'portal-doc-del', '🗑'); del.type = 'button';
+      del.setAttribute('aria-label', 'Remove ' + (d.fileName || 'document'));
+      del.addEventListener('click', function () {
+        portalConfirm('Are you sure you want to remove this policy document from the user’s view?').then(function (ok) {
+          if (!ok) { return; }
+          del.disabled = true;
+          gasGet({ action: 'deleteDocument', email: getEmail(), fileURL: d.fileURL })
+            .then(function (r) {
+              if (r && r.status === 'success') {
+                li.remove();
+                if (!ul.children.length) { ul.appendChild(el('li', 'portal-empty', emptyMsg)); }
+              } else { del.disabled = false; status('err', (r && r.message) || 'Could not remove.'); }
+            })
+            .catch(function () { del.disabled = false; status('err', 'Could not remove the document.'); });
+        });
+      });
+      li.appendChild(del);
       ul.appendChild(li);
     });
   }
@@ -1417,32 +1527,101 @@
 
   $('viewingClose').addEventListener('click', closeViewing);
 
-  $('adminUploadInput').addEventListener('change', function () {
-    adminFile = (this.files && this.files[0]) || null;
-    $('adminFileName').textContent = adminFile ? ('✓ ' + adminFile.name) : '';
+  // ---- Admin "Send a Policy": multi-file, drag-drop, per-file expiry ----
+  var adminStaged = []; // [{ file, expiry }]
+
+  function renderAdminStaged() {
+    var ul = $('adminStaged'); ul.innerHTML = '';
+    adminStaged.forEach(function (item, i) {
+      var li = el('li', 'portal-staged-item');
+      var meta = el('div', 'portal-staged-meta');
+      meta.appendChild(el('span', 'portal-staged-name', item.file.name));
+      meta.appendChild(el('span', 'portal-staged-size', formatBytes(item.file.size)));
+      li.appendChild(meta);
+      var exp = document.createElement('input');
+      exp.type = 'date'; exp.className = 'f portal-staged-expiry'; exp.value = item.expiry || '';
+      exp.setAttribute('aria-label', 'Expiry date for ' + item.file.name);
+      exp.addEventListener('change', function () { item.expiry = this.value; });
+      li.appendChild(exp);
+      var rm = el('button', 'portal-staged-remove', '×'); rm.type = 'button';
+      rm.setAttribute('aria-label', 'Remove ' + item.file.name);
+      rm.addEventListener('click', function () { adminStaged.splice(i, 1); renderAdminStaged(); });
+      li.appendChild(rm);
+      ul.appendChild(li);
+    });
+  }
+  function addAdminFiles(fileList) {
+    // Internal admin tool → no size / type / quantity limit enforced.
+    Array.prototype.slice.call(fileList || []).forEach(function (f) {
+      if (!adminStaged.some(function (s) { return s.file.name === f.name && s.file.size === f.size; })) {
+        adminStaged.push({ file: f, expiry: '' });
+      }
+    });
+    renderAdminStaged();
+  }
+  $('adminUploadInput').addEventListener('change', function () { addAdminFiles(this.files); this.value = ''; });
+  var adminDrop = $('adminDrop');
+  ['dragenter', 'dragover'].forEach(function (ev) { adminDrop.addEventListener(ev, function (e) { e.preventDefault(); adminDrop.classList.add('is-drag'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { adminDrop.addEventListener(ev, function (e) { e.preventDefault(); adminDrop.classList.remove('is-drag'); }); });
+  adminDrop.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files) { addAdminFiles(e.dataTransfer.files); } });
+
+  // Load the selected account's sub-profiles into the "Attach to" selector.
+  $('adminTargetUser').addEventListener('change', function () {
+    var sel = $('adminTargetProfile');
+    sel.innerHTML = '<option value="">The account (main POC)</option>';
+    var email = this.value;
+    if (!email) { return; }
+    gasGet({ action: 'getSubProfiles', email: getEmail(), parentEmail: email }).then(function (data) {
+      ((data && data.status === 'success' && data.profiles) || []).forEach(function (p) {
+        var opt = el('option', null, p.name + (p.relation ? ' (' + p.relation + ')' : ''));
+        opt.value = p.profileId; sel.appendChild(opt);
+      });
+    }).catch(function () {});
   });
 
   $('adminSendForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var err = $('adminErr'); err.hidden = true;
     var target = $('adminTargetUser').value;
+    var profileId = $('adminTargetProfile').value || '';
     if (!target) { return fieldErr(err, 'Please select a client.'); }
-    if (!adminFile) { return fieldErr(err, 'Please choose a file to send.'); }
-    if (adminFile.size > MAX_FILE) { return fieldErr(err, 'That file is larger than 5 MB.'); }
+    if (!adminStaged.length) { return fieldErr(err, 'Please add at least one file to send.'); }
+    if (adminStaged.some(function (s) { return !s.expiry; })) { return fieldErr(err, 'Please set an expiry date for every file.'); }
 
     var btn = $('adminSendBtn'); btn.disabled = true; btn.textContent = 'Sending…';
-    readB64(adminFile).then(function (b64) {
-      return gasUpload({ action: 'adminUpload', email: getEmail(), targetEmail: target, fileName: adminFile.name, mimeType: adminFile.type || 'application/octet-stream', fileData: b64 });
-    }).then(function () {
-      // no-cors reply is opaque; the send is optimistic (the admin gate is enforced server-side).
-      status('ok', 'Sent to ' + target + '.');
-      $('adminSendForm').reset(); adminFile = null; $('adminFileName').textContent = '';
-      // If we're viewing this client, refresh their documents to show the new policy.
-      if (selectedUser && (selectedUser.email || '').toLowerCase() === target.toLowerCase()) {
-        setTimeout(function () { loadClientDocs(selectedUser.email); }, 1200);
+    var total = adminStaged.length, i = 0;
+    // Send each file (with its own expiry) in sequence; the backend fires one
+    // "new policy document" notification per account+profile+day.
+    function next() {
+      if (i >= total) {
+        status('ok', total + ' document' + (total > 1 ? 's' : '') + ' sent to ' + target + '.');
+        adminStaged = []; renderAdminStaged(); $('adminTargetProfile').value = '';
+        if (selectedUser && (selectedUser.email || '').toLowerCase() === target.toLowerCase()) {
+          setTimeout(function () { loadClientDocs(selectedUser.email); }, 1200);
+        }
+        btn.disabled = false; btn.textContent = 'Send to client';
+        return;
       }
-    }).catch(function (e2) { fieldErr(err, e2.message || 'Could not send.'); })
-      .then(function () { btn.disabled = false; btn.textContent = 'Send to client'; });
+      var item = adminStaged[i++];
+      readB64(item.file).then(function (b64) {
+        return gasUpload({ action: 'adminUpload', email: getEmail(), targetEmail: target, profileId: profileId,
+          expiryDate: item.expiry, fileName: item.file.name, mimeType: item.file.type || 'application/octet-stream', fileData: b64 });
+      }).then(next).catch(function (e2) {
+        fieldErr(err, (e2 && e2.message) || 'Could not send.'); btn.disabled = false; btn.textContent = 'Send to client';
+      });
+    }
+    next();
+  });
+
+  // Account-level Sum Insured save (admin sets the POC's SI, admin-gated server-side).
+  $('viewAccountSISave').addEventListener('click', function () {
+    if (!selectedUser) { return; }
+    var si = parseInt(($('viewAccountSI').value || '').replace(/[^\d]/g, ''), 10) || 0;
+    var b = this; b.disabled = true; $('viewAccountSIHint').textContent = 'Saving…';
+    gasGet({ action: 'updateProfile', email: getEmail(), targetEmail: selectedUser.email, sumInsured: si })
+      .then(function (r) { $('viewAccountSIHint').textContent = (r && r.status === 'success') ? '✓ Saved' : ((r && r.message) || 'Could not save.'); })
+      .catch(function () { $('viewAccountSIHint').textContent = 'Could not save.'; })
+      .then(function () { b.disabled = false; });
   });
 
   // ============================================================

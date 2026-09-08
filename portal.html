@@ -348,10 +348,20 @@
               <select class="f portal-select" id="adminTargetUser">
                 <option value="" disabled selected>Select a client…</option>
               </select>
-              <label class="btn btn-ghost portal-upload-btn" for="adminUploadInput" id="adminUploadLabel">📎 Choose
-                PDF</label>
-              <input id="adminUploadInput" class="portal-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png">
-              <div class="portal-file-name" id="adminFileName"></div>
+              <label class="f-label" for="adminTargetProfile">Attach to <span class="f-optional">(optional
+                  profile)</span></label>
+              <select class="f portal-select" id="adminTargetProfile">
+                <option value="">The account (main POC)</option>
+              </select>
+              <div class="portal-dropzone" id="adminDrop">
+                <div class="portal-dropzone-inner">
+                  <span class="portal-dropzone-ico">⬆</span>
+                  <label class="portal-dropzone-browse" for="adminUploadInput">Browse files</label>
+                  <span class="portal-dropzone-hint">or drop files here · multiple allowed, each with its own expiry</span>
+                </div>
+              </div>
+              <input id="adminUploadInput" class="portal-file-input" type="file" multiple>
+              <ul class="portal-staged-list" id="adminStaged"></ul>
               <div class="portal-err" id="adminErr" hidden></div>
               <button type="submit" class="btn btn-primary portal-block" id="adminSendBtn">Send to client</button>
             </form>
@@ -365,6 +375,15 @@
                 <span class="portal-folder-sub">Everything on this client's account</span>
               </div>
               <button type="button" class="portal-viewing-close" id="viewingClose" aria-label="Close">×</button>
+            </div>
+            <!-- Account-level Sum Insured (admin-set); hidden when viewing a sub-profile. -->
+            <div class="portal-si-row" id="viewAccountSIRow" hidden>
+              <label class="f-label" for="viewAccountSI">Account Sum Insured (POC)</label>
+              <div class="portal-si-input">
+                <input class="f" id="viewAccountSI" type="text" inputmode="numeric" placeholder="e.g. 500000">
+                <button type="button" class="btn btn-ghost" id="viewAccountSISave">Save</button>
+              </div>
+              <div class="portal-si-hint" id="viewAccountSIHint"></div>
             </div>
             <div class="portal-view-group">
               <h4 class="portal-view-label" id="adminDocsLabel">📨 Sent by you</h4>
@@ -470,11 +489,20 @@
           <option value="Sister">Sister</option>
           <option value="Other">Other</option>
         </select>
-        <label class="f-label" for="spFile">Document <span class="f-optional">(optional · PDF/JPG/PNG, up to 5
-            MB)</span></label>
-        <label class="btn btn-ghost portal-upload-btn" for="spFile" id="spFileLabel">📎 Choose file</label>
-        <input id="spFile" class="portal-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,image/*,.heic,.heif">
-        <div class="portal-file-name" id="spFileName"></div>
+        <label class="f-label" for="spSumInsured">Sum Insured <span class="f-optional">(₹, optional)</span></label>
+        <input class="f" id="spSumInsured" name="spSumInsured" type="text" inputmode="numeric" autocomplete="off"
+          placeholder="e.g. 500000">
+        <label class="f-label">Documents <span class="f-optional">(optional · multiple, each with its own
+            expiry)</span></label>
+        <div class="portal-dropzone" id="spDrop">
+          <div class="portal-dropzone-inner">
+            <span class="portal-dropzone-ico">⬆</span>
+            <label class="portal-dropzone-browse" for="spFile">Browse files</label>
+            <span class="portal-dropzone-hint">or drop files here</span>
+          </div>
+        </div>
+        <input id="spFile" class="portal-file-input" type="file" multiple>
+        <ul class="portal-staged-list" id="spStaged"></ul>
         <div class="portal-err" id="spError" hidden></div>
         <div class="portal-subprofile-actions">
           <button type="button" class="btn btn-danger portal-sp-delete" id="spDeleteBtn" hidden>Delete</button>
@@ -483,6 +511,18 @@
           <button type="submit" class="btn btn-primary" id="spSubmitBtn">Submit</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Generic confirm dialog (policy delete, etc.). -->
+  <div class="pmodal" id="modalConfirm" hidden>
+    <div class="pmodal-box">
+      <h3 id="confirmTitle">Are you sure?</h3>
+      <p id="confirmMsg"></p>
+      <div class="portal-verify-actions">
+        <button type="button" class="btn btn-ghost" id="confirmNo">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmYes">Remove</button>
+      </div>
     </div>
   </div>
 

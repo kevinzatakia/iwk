@@ -604,6 +604,23 @@ body.portal { min-height: 100vh; }
   color: #b42318; background: #fbe9e7; border: 1px solid #f5c6bf; transition: background .15s;
 }
 .portal-staged-remove:hover { background: #f6d2cc; }
+/* Per-file expiry date input in the admin "Send a Policy" staging list.
+   NB: the compound selector out-specifies the shared `input.f { width:100% }`
+   rule — without it the date field went full-width and collapsed the filename
+   column to one character per line. */
+.portal-staged-item .portal-staged-expiry { flex: none; width: 150px; padding: 7px 9px; font-size: 12.5px; }
+.portal-staged-item .portal-staged-name { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .portal-staged-item { flex-wrap: wrap; }
+  .portal-staged-item .portal-staged-meta { flex: 1 1 100%; }
+  .portal-staged-item .portal-staged-expiry { flex: 1 1 auto; width: auto; }
+}
+
+/* Account Sum Insured editor in the admin viewing panel. */
+.portal-si-row { margin: 4px 0 14px; }
+.portal-si-input { display: flex; gap: 8px; align-items: center; }
+.portal-si-input .f { flex: 1; }
+.portal-si-hint { font-size: 12px; color: var(--ink-mute); margin-top: 5px; min-height: 1em; }
 
 .portal-uploader-status { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; }
 .portal-uploader-status[hidden] { display: none; }
