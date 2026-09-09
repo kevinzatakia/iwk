@@ -27,7 +27,6 @@
       </a>
       <nav class="portal-navlinks">
         <!-- Populated per view by js/portal.js -->
-        <button type="button" id="installAppBtn" class="portal-install" hidden>⬇ Install app</button>
         <button type="button" id="navAbout" class="portal-navbtn" hidden>About</button>
         <button type="button" id="notifBell" class="portal-bell" hidden aria-label="Notifications"
           aria-expanded="false" aria-controls="notifCenter">
@@ -146,69 +145,30 @@
 
     <!-- ============ VIEW 4: CLIENT DASHBOARD ============ -->
     <section id="client-dashboard-view" class="pv" hidden>
-      <div class="portal-welcome">
-        <h2>Hi <span id="clientName">there</span> 👋</h2>
-        <p>Here are your policies and documents.</p>
-      </div>
 
-      <!-- Missing-phone warning (shown after login when no phone is on file) -->
-      <button type="button" class="portal-warning" id="phoneWarning" hidden>
-        ⚠️ Please update your Profile with a valid phone number for seamless communication regarding your renewals
-        and claims.
-      </button>
-
-      <!-- Push opt-in (shown from the 2nd login when permission not yet decided) -->
-      <div class="portal-optin portal-pushoptin" id="pushOptin" hidden>
-        <div class="portal-optin-text">
-          <strong>🔔 Enable notifications</strong>
-          <span>Get instant updates on your claims and upcoming renewals — even when a page isn't open.</span>
+      <!-- ============ TAB: HOME ============ -->
+      <div class="ptab" id="tab-home">
+        <div class="portal-welcome">
+          <h2>Hi <span id="clientName">there</span> 👋</h2>
+          <p>Your family's cover at a glance.</p>
         </div>
-        <div class="portal-optin-actions">
-          <button type="button" class="btn btn-primary" id="pushEnable">Enable</button>
-        </div>
-        <button type="button" class="portal-optin-dismiss" id="pushDismiss" aria-label="Dismiss">×</button>
-      </div>
 
-      <!-- Family Profiles — sub-profiles under this account (always visible) -->
-      <div class="portal-folder portal-famprofiles" id="familyProfilesSection">
-        <div class="portal-famprofiles-head">
-          <div>
-            <h3>👪 Family Profiles</h3>
-            <span class="portal-folder-sub">People under your account. Documents Kevin uploads for them appear
-              here — and in their own login if they have one.</span>
+        <button type="button" class="portal-warning" id="phoneWarning" hidden>
+          ⚠️ Please update your Profile with a valid phone number for seamless communication regarding your renewals
+          and claims.
+        </button>
+
+        <div class="portal-optin portal-pushoptin" id="pushOptin" hidden>
+          <div class="portal-optin-text">
+            <strong>🔔 Enable notifications</strong>
+            <span>Get instant updates on your claims and upcoming renewals — even when a page isn't open.</span>
           </div>
-          <button type="button" class="btn btn-primary portal-famprofiles-add" id="addFamilyProfileBtn">＋ Add Family
-            Member</button>
+          <div class="portal-optin-actions">
+            <button type="button" class="btn btn-primary" id="pushEnable">Enable</button>
+          </div>
+          <button type="button" class="portal-optin-dismiss" id="pushDismiss" aria-label="Dismiss">×</button>
         </div>
-        <div class="portal-famprofiles-list" id="familyProfilesList">
-          <div class="portal-empty">Loading…</div>
-        </div>
-      </div>
 
-      <!-- Family Organizer opt-in (only for POCs, when Family Mode is off) -->
-      <div class="portal-optin" id="familyOptinBanner" hidden>
-        <div class="portal-optin-text">
-          <strong>👪 Organize your family's insurance in one place.</strong>
-          <span>See everyone's policies, renewals and claims from your dashboard — completely optional.</span>
-        </div>
-        <div class="portal-optin-actions">
-          <button type="button" class="btn btn-ghost" id="familyLearnMore">Learn more</button>
-          <button type="button" class="btn btn-primary" id="familyActivate">Turn on</button>
-        </div>
-        <button type="button" class="portal-optin-dismiss" id="familyDismiss" aria-label="Dismiss">×</button>
-      </div>
-
-      <!-- Family Mode toggle (only for POCs) -->
-      <div class="portal-familytoggle" id="familyToggleRow" hidden>
-        <span class="portal-familytoggle-label">👪 Family Mode</span>
-        <label class="portal-switch" for="familyModeSwitch">
-          <input type="checkbox" id="familyModeSwitch">
-          <span class="portal-switch-track"><span class="portal-switch-knob"></span></span>
-        </label>
-      </div>
-
-      <!-- ===== Family hub (shown when Family Mode is on) ===== -->
-      <section class="portal-familyhub" id="familyHub" hidden>
         <div class="portal-hub-stats">
           <div class="portal-stat portal-stat-cover">
             <span class="portal-stat-label">Total family cover</span>
@@ -222,27 +182,114 @@
           </div>
         </div>
 
-        <div class="portal-memtabs" id="familyMemberTabs" role="tablist"></div>
+        <!-- Family Profiles — sub-profiles under this account (moved here from Profile) -->
+        <div class="portal-folder portal-famprofiles" id="familyProfilesSection">
+          <div class="portal-famprofiles-head">
+            <div>
+              <h3>👪 Family Profiles</h3>
+              <span class="portal-folder-sub">People under your account. Documents Kevin uploads for them appear
+                here — and in their own login if they have one.</span>
+            </div>
+            <button type="button" class="btn btn-primary portal-famprofiles-add" id="addFamilyProfileBtn">＋ Add Family
+              Member</button>
+          </div>
+          <div class="portal-famprofiles-list" id="familyProfilesList">
+            <div class="portal-empty">Loading…</div>
+          </div>
+        </div>
 
         <div class="portal-folder">
           <div class="portal-folder-head">
             <h3>⏳ Upcoming renewals</h3>
-            <span class="portal-folder-sub">The next due dates across the family</span>
+            <span class="portal-folder-sub">Due dates across your family, by policy expiry</span>
           </div>
           <ul class="portal-timeline" id="familyTimeline">
             <li class="portal-empty">Loading…</li>
           </ul>
         </div>
+      </div>
 
-        <div class="portal-folder">
+      <!-- ============ TAB: DOCUMENTS ============ -->
+      <div class="ptab" id="tab-documents" hidden>
+        <div class="portal-welcome">
+          <h2>Documents</h2>
+          <p>Your policies, uploads and archive.</p>
+        </div>
+
+        <div class="portal-folder" id="policiesFolder">
           <div class="portal-folder-head">
-            <h3>📋 Policies &amp; premiums</h3>
-            <span class="portal-folder-sub" id="familyPoliciesSub">Every policy, with the amount due. Tap “Share” to forward the details.</span>
+            <h3>Your Policies</h3>
+            <span class="portal-folder-sub">Shared with you by Kevin · read-only</span>
           </div>
-          <ul class="portal-ledger" id="familyPolicies">
+          <div class="portal-filter" id="policyFilter" role="tablist" aria-label="Filter policies">
+            <button type="button" class="portal-filter-btn is-active" data-filter="active" role="tab"
+              aria-selected="true">Active</button>
+            <button type="button" class="portal-filter-btn" data-filter="expired" role="tab"
+              aria-selected="false">Expired</button>
+          </div>
+          <ul class="portal-doclist" id="policiesList">
             <li class="portal-empty">Loading…</li>
           </ul>
         </div>
+
+        <div class="portal-folder">
+          <div class="portal-folder-head">
+            <h3>My Uploads</h3>
+            <span class="portal-folder-sub">Documents you've shared with Kevin (Use the "Add Policy" Button to display your policies here)</span>
+          </div>
+          <ul class="portal-doclist" id="uploadsList">
+            <li class="portal-empty">Loading…</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ============ TAB: ADD POLICY (RETIRED) ============ -->
+      <!-- The center "Add Policy" nav now opens the upload overlay (#modalAddPolicy)
+           instead of this tab. Markup kept hidden & unreachable for easy restore. -->
+      <div class="ptab" id="tab-addpolicy" hidden>
+        <div class="portal-welcome">
+          <h2>Add a policy</h2>
+          <p>Get an instant estimate, or ask Kevin for a custom quote.</p>
+        </div>
+
+        <div class="portal-addgrid">
+          <a class="portal-addcard" href="/policies/fire.html" target="_blank" rel="noopener">
+            <span class="portal-addcard-ico">🔥</span>
+            <span class="portal-addcard-title">Fire &amp; Property</span>
+            <span class="portal-addcard-sub">Instant premium estimate</span>
+          </a>
+          <a class="portal-addcard" href="/policies/health.html" target="_blank" rel="noopener">
+            <span class="portal-addcard-ico">🩺</span>
+            <span class="portal-addcard-title">Health · Yuva Bharat</span>
+            <span class="portal-addcard-sub">Instant premium estimate</span>
+          </a>
+        </div>
+
+        <div class="portal-folder">
+          <div class="portal-folder-head">
+            <h3>Request a custom quote</h3>
+            <span class="portal-folder-sub">For motor, term, travel and everything else — Kevin will get back to you.</span>
+          </div>
+          <form id="quoteForm" novalidate>
+            <label class="f-label" for="quotePolicyType">Policy type</label>
+            <input class="f" id="quotePolicyType" autocomplete="off" placeholder="e.g. Motor, Term life, Travel" required>
+            <label class="f-label" for="quoteDetails">Details <span class="f-optional">(optional)</span></label>
+            <textarea class="f" id="quoteDetails" rows="3" placeholder="Anything Kevin should know"></textarea>
+            <div class="portal-err" id="quoteErr" hidden></div>
+            <button type="submit" class="btn btn-primary portal-block" id="quoteSubmit">Request quote</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ============ TAB: CLAIMS ============ -->
+      <div class="ptab" id="tab-claims" hidden>
+        <div class="portal-welcome">
+          <h2>Claims</h2>
+          <p>Intimate a new claim, or track existing ones.</p>
+        </div>
+
+        <button type="button" class="btn btn-primary portal-block portal-claim-cta" id="claimIntimateBtn">🚑 Intimate a
+          Claim</button>
 
         <div class="portal-folder">
           <div class="portal-folder-head">
@@ -253,63 +300,77 @@
             <li class="portal-empty">Loading…</li>
           </ul>
         </div>
-      </section>
+      </div>
 
-      <div class="portal-folders" id="individualFolders">
-        <div class="portal-folder" id="policiesFolder">
-          <div class="portal-folder-head">
-            <h3>Your Policies</h3>
-            <span class="portal-folder-sub">Shared with you by Kevin · read-only</span>
-          </div>
-          <ul class="portal-doclist" id="policiesList">
-            <li class="portal-empty">Loading…</li>
-          </ul>
+      <!-- ============ TAB: PROFILE ============ -->
+      <div class="ptab" id="tab-profile" hidden>
+        <div class="portal-welcome">
+          <h2>Profile</h2>
+          <p>Your account and family members.</p>
         </div>
 
         <div class="portal-folder">
           <div class="portal-folder-head">
-            <h3>My Uploads</h3>
-            <span class="portal-folder-sub">Documents you've shared with Kevin</span>
+            <h3>Account</h3>
           </div>
-          <ul class="portal-doclist" id="uploadsList">
-            <li class="portal-empty">Loading…</li>
-          </ul>
-          <button type="button" class="btn btn-primary portal-upload-btn" id="myUploadOpen">＋ Upload document</button>
-          <div id="myUploadMount"></div>
+          <div class="portal-profilecard">
+            <div class="portal-profilerow"><span class="portal-profilelabel">Name</span><span
+                id="profileTabName">—</span></div>
+            <div class="portal-profilerow"><span class="portal-profilelabel">Email</span><span
+                id="profileTabEmail">—</span></div>
+            <div class="portal-profilerow"><span class="portal-profilelabel">Phone</span><span
+                id="profileTabPhone">—</span></div>
+            <button type="button" class="btn btn-ghost portal-block" id="profileEditBtn">Edit details</button>
+            <button type="button" class="btn portal-block portal-profile-logout" id="profileLogoutBtn">Log out</button>
+          </div>
         </div>
       </div>
 
-      <!-- Quick dashboard panels: Claims + Expired Policies (kept at the bottom) -->
-      <div class="portal-dashpanels">
-        <div class="portal-dash-btns">
-          <button type="button" class="portal-dash-btn" id="claimsToggle" aria-expanded="false" aria-controls="claimsPanel">
-            <span class="portal-dash-btn-ico">🩺</span>
-            <span class="portal-dash-btn-txt">Claims<span class="portal-dash-btn-sub">Track reimbursements</span></span>
-          </button>
-          <button type="button" class="portal-dash-btn" id="expiredToggle" aria-expanded="false" aria-controls="expiredPanel">
-            <span class="portal-dash-btn-ico">⌛</span>
-            <span class="portal-dash-btn-txt">Expired Policies<span class="portal-dash-btn-sub">Lapsed &amp; needs renewal</span></span>
-          </button>
-        </div>
+      <!-- ============ BOTTOM NAVIGATION ============ -->
+      <nav class="portal-bottomnav" id="portalBottomNav" aria-label="Portal navigation">
+        <button type="button" class="portal-bn is-active" data-tab="tab-home" aria-label="Home">
+          <span class="portal-bn-ico" aria-hidden="true">🏠</span><span class="portal-bn-lbl">Home</span>
+        </button>
+        <button type="button" class="portal-bn" data-tab="tab-documents" aria-label="Documents">
+          <span class="portal-bn-ico" aria-hidden="true">📄</span><span class="portal-bn-lbl">Documents</span>
+        </button>
+        <button type="button" class="portal-bn portal-bn-center" data-tab="tab-addpolicy" aria-label="Add policy">
+          <span class="portal-bn-plus" aria-hidden="true">＋</span><span class="portal-bn-lbl">Add Policy</span>
+        </button>
+        <button type="button" class="portal-bn" data-tab="tab-claims" aria-label="Claims">
+          <span class="portal-bn-ico" aria-hidden="true">☂️</span><span class="portal-bn-lbl">Claims</span>
+        </button>
+        <button type="button" class="portal-bn" data-tab="tab-profile" aria-label="Profile">
+          <span class="portal-bn-ico" aria-hidden="true">👤</span><span class="portal-bn-lbl">Profile</span>
+        </button>
+      </nav>
 
-        <div class="portal-panel" id="claimsPanel" hidden>
-          <div class="portal-panel-head">
-            <h3>🩺 Claims</h3>
-            <button type="button" class="portal-panel-close" id="claimsPanelClose" aria-label="Close claims panel">×</button>
-          </div>
-          <ul class="portal-claims" id="claimsPanelList">
-            <li class="portal-empty">No active or past claims found.</li>
-          </ul>
-        </div>
-
-        <div class="portal-panel" id="expiredPanel" hidden>
-          <div class="portal-panel-head">
-            <h3>⌛ Expired Policies</h3>
-            <button type="button" class="portal-panel-close" id="expiredPanelClose" aria-label="Close expired policies panel">×</button>
-          </div>
-          <ul class="portal-expired" id="expiredPanelList">
-            <li class="portal-empty">No expired policies — you're all up to date.</li>
-          </ul>
+      <!-- Claim Intimation overlay -->
+      <div class="pmodal" id="modalClaim" hidden>
+        <div class="pmodal-box">
+          <button type="button" class="pmodal-close" id="claimClose" aria-label="Close">×</button>
+          <h3>Intimate a Claim</h3>
+          <p class="pmodal-lead">Fill this in and Kevin will be notified right away.</p>
+          <form id="claimForm" novalidate>
+            <label class="f-label" for="claimPolicyNo">Policy No</label>
+            <input class="f" id="claimPolicyNo" autocomplete="off" required>
+            <label class="f-label" for="claimInsured">Insured Name</label>
+            <input class="f" id="claimInsured" autocomplete="off" required>
+            <label class="f-label" for="claimPatient">Patient Name</label>
+            <input class="f" id="claimPatient" autocomplete="off" required>
+            <label class="f-label" for="claimHospital">Hospital Name</label>
+            <input class="f" id="claimHospital" autocomplete="off" required>
+            <label class="f-label" for="claimHospitalAddr">Hospital Address</label>
+            <textarea class="f" id="claimHospitalAddr" rows="2" required></textarea>
+            <label class="f-label" for="claimAdmission">Date of Admission</label>
+            <input class="f" id="claimAdmission" type="date" required>
+            <label class="f-label" for="claimIllness">Nature of Illness</label>
+            <textarea class="f" id="claimIllness" rows="2" required></textarea>
+            <label class="f-label" for="claimContact">Contact No</label>
+            <input class="f" id="claimContact" type="tel" inputmode="numeric" maxlength="10" required>
+            <div class="portal-err" id="claimErr" hidden></div>
+            <button type="submit" class="btn btn-primary portal-block" id="claimSubmit">Submit claim</button>
+          </form>
         </div>
       </div>
     </section>
@@ -347,11 +408,6 @@
               <label class="f-label" for="adminTargetUser">Client</label>
               <select class="f portal-select" id="adminTargetUser">
                 <option value="" disabled selected>Select a client…</option>
-              </select>
-              <label class="f-label" for="adminTargetProfile">Attach to <span class="f-optional">(optional
-                  profile)</span></label>
-              <select class="f portal-select" id="adminTargetProfile">
-                <option value="">The account (main POC)</option>
               </select>
               <div class="portal-dropzone" id="adminDrop">
                 <div class="portal-dropzone-inner">
@@ -523,6 +579,16 @@
         <button type="button" class="btn btn-ghost" id="confirmNo">Cancel</button>
         <button type="button" class="btn btn-danger" id="confirmYes">Remove</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Add a policy — upload overlay (same staged-upload flow as "My Uploads") -->
+  <div class="pmodal" id="modalAddPolicy" hidden>
+    <div class="pmodal-box">
+      <button type="button" class="pmodal-close" data-close-modal aria-label="Close">×</button>
+      <h3>Add a policy</h3>
+      <p class="pmodal-lead">Upload your policy document and Kevin will add it to your portal.</p>
+      <div id="addPolicyMount"></div>
     </div>
   </div>
 

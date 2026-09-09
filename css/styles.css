@@ -101,6 +101,16 @@ header {
   transition: background .15s, border-color .15s;
 }
 .nav-login:hover { background: #d8e7da; border-color: var(--green); }
+/* "Install app" button — the PWA install prompt, revealed by js/pwa.js only when
+   the browser offers it (stays hidden otherwise). */
+.nav-install {
+  font-family: var(--sans); font-size: 13.5px; font-weight: 700; cursor: pointer;
+  color: var(--green-deep); background: transparent;
+  border: 1.5px solid rgba(23, 105, 74, .28); border-radius: 999px;
+  padding: 9px 15px; white-space: nowrap;
+  transition: background .15s, border-color .15s;
+}
+.nav-install:hover { background: var(--green-tint); border-color: var(--green); }
 
 /* ---------- hero ---------- */
 /* Small screens: one column following source order, so the portrait lands

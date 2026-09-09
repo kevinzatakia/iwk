@@ -126,6 +126,9 @@
     $('notifBell').hidden = !onClient;
     if (!onClient) { $('notifCenter').hidden = true; }
     $('navLogout').hidden = !(onClient || onAdmin);
+    // The slide-in menu (hamburger) is admin-only now; clients log out from the
+    // Profile tab and navigate via the bottom nav.
+    $('menuToggle').hidden = !onAdmin;
   }
 
   function showView(id) {
@@ -213,6 +216,7 @@
     main.appendChild(a);
     var metaBits = [];
     if (doc.timestamp) { metaBits.push(new Date(doc.timestamp).toLocaleDateString()); }
+    if (doc.expiryDate) { metaBits.push((isDocExpired(doc) ? 'Expired ' : 'Expires ') + fmtDate(doc.expiryDate)); }
     if (metaBits.length) { main.appendChild(el('span', 'portal-doc-meta', metaBits.join(' · '))); }
     if (doc.linkedViaFamily) { main.appendChild(el('span', 'portal-doc-tag', 'Linked via Family Account')); }
     li.appendChild(main);
@@ -237,8 +241,31 @@
       .catch(function (e2) { status('err', e2.message || 'Could not delete.'); btn.disabled = false; btn.textContent = 'Delete'; });
   }
 
+  // "Your Policies" (admin-sent documents) split into Active / Expired by each
+  // file's own expiry date. Active = expiry today-or-later (or no expiry set);
+  // Expired = expiry has already passed.
+  var adminPoliciesCache = [];
+  var policyFilter = 'active'; // 'active' | 'expired'
+
+  function isDocExpired(doc) {
+    var d = toDate(doc && doc.expiryDate);
+    if (!d) { return false; } // no expiry on file → treat as active
+    return d.setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0);
+  }
+
+  function renderPoliciesDocs() {
+    var ul = $('policiesList');
+    if (!ul) { return; }
+    var expired = policyFilter === 'expired';
+    var list = adminPoliciesCache.filter(function (d) { return isDocExpired(d) === expired; });
+    renderList(ul, list, expired
+      ? 'No expired policies — you\'re all up to date.'
+      : 'No active policies shared yet.');
+  }
+
   function loadClient() {
     $('clientName').textContent = getName();
+    switchTab('tab-home');
     closeAllPanels();
     loadProfile();
     loadFamily();
@@ -256,7 +283,9 @@
         clientDocsCache = docs; // for per-sub-profile document reveal
         var policies = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() === 'admin'; });
         var uploads = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() !== 'admin'; });
-        renderList(pol, policies, 'No policies shared yet.');
+        adminPoliciesCache = policies;
+        renderPoliciesDocs();
+        renderTimeline(); // renewals are derived from document expiry dates
         renderList(up, uploads, 'You haven\'t uploaded anything yet.');
       })
       .catch(function (e2) {
@@ -408,19 +437,42 @@
     });
 
     render();
-    return { box: box, open: function () { box.hidden = false; setStatus(null); } };
+    return {
+      box: box,
+      open: function () { box.hidden = false; setStatus(null); },
+      // Clear any staged files/status and keep the box visible (for modal-hosted use).
+      reset: function () { staged = []; render(); setStatus(null); box.hidden = false; }
+    };
   }
 
-  // Mount the "My Uploads" staged uploader.
-  var myUploader = buildUploader({
+  // ("My Uploads" upload button removed — clients now upload via the "Add Policy"
+  // overlay. The uploads list itself still shows what they've sent.)
+
+  // "Your Policies" Active / Expired atomic filter.
+  document.querySelectorAll('#policyFilter .portal-filter-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      policyFilter = b.getAttribute('data-filter') === 'expired' ? 'expired' : 'active';
+      document.querySelectorAll('#policyFilter .portal-filter-btn').forEach(function (o) {
+        var on = o === b;
+        o.classList.toggle('is-active', on);
+        o.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      renderPoliciesDocs();
+    });
+  });
+
+  // "Add a policy" — opens the same staged-upload flow as "My Uploads", but in a
+  // dark overlay modal (#modalAddPolicy). Files upload to Kevin like any client doc.
+  var addPolicyUploader = buildUploader({
     title: 'Upload a document',
     accept: '.pdf,.jpg,.jpeg,.png,image/*,.heic,.heif',
     multiple: true,
     note: 'PDF, JPG or PNG · up to 5 MB each',
     onCommit: function (files) { return uploadFiles(files, function (f) { return f.name; }); }
   });
-  $('myUploadMount').appendChild(myUploader.box);
-  $('myUploadOpen').addEventListener('click', function () { myUploader.open(); });
+  $('addPolicyMount').appendChild(addPolicyUploader.box);
+  addPolicyUploader.box.hidden = false; // always shown inside its modal
+  function openAddPolicy() { addPolicyUploader.reset(); $('modalAddPolicy').hidden = false; }
 
   // ============================================================
   // FAMILY ORGANIZER (POC mode)
@@ -432,12 +484,9 @@
   var family = { isFamilyPoc: false, profiles: [], policies: [], claims: [] };
   var familyFilter = 'all'; // 'all' or a profileId
 
-  function familyModeOn() { return localStorage.getItem('portalFamilyMode') === 'on'; }
-  function setFamilyMode(on) {
-    localStorage.setItem('portalFamilyMode', on ? 'on' : 'off');
-    renderFamilyChrome();
-    if (on) { familyFilter = 'all'; renderFamilyHub(); }
-  }
+  // Family view is now the default for every client (the hub lives on the Home tab).
+  function familyModeOn() { return true; }
+  function setFamilyMode() { familyFilter = 'all'; renderFamilyHub(); }
 
   // ---- formatting ----
   function inr(n) { return '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN'); }
@@ -480,19 +529,9 @@
   // Show/hide the banner, toggle and hub based on the saved preference. Family
   // Mode is available to every client now — they build their own family list via
   // "Add family member", so we no longer gate on having existing profiles.
-  function renderFamilyChrome() {
-    var on = familyModeOn();
-    var dismissed = localStorage.getItem('portalFamilyBannerDismissed') === '1';
-
-    $('familyToggleRow').hidden = false;
-    $('familyModeSwitch').checked = on;
-    $('familyOptinBanner').hidden = !(!on && !dismissed);
-
-    $('familyHub').hidden = !on;
-    // In family mode the structured policies replace the read-only "Your Policies"
-    // file list, but keep "My Uploads" so documents can still be shared.
-    $('policiesFolder').hidden = on;
-  }
+  // No-op: family view is always on, and the hub + document folders now live on
+  // their own tabs (no toggle/banner to manage).
+  function renderFamilyChrome() { }
 
   function filteredPolicies() {
     return familyFilter === 'all' ? family.policies
@@ -507,7 +546,7 @@
     // Total Family Aggregate Sum Insured = the POC's manually-set SI + every
     // dependent Profile's SI (person-level figures the admin maintains — no longer
     // derived from individual policy rows).
-    var acctSI = Number(family.accountSumInsured) || 0;
+    var acctSI = Number(profile.sumInsured) || 0; // POC's own SI, from Users (getProfile)
     var profSI = family.profiles.reduce(function (s, p) { return s + (Number(p.sumInsured) || 0); }, 0);
     var totalCover = acctSI + profSI;
     $('familyTotalCover').textContent = totalCover ? inr(totalCover) : '—';
@@ -524,14 +563,13 @@
     var openClaims = family.claims.filter(function (c) { return !isClaimDone(c.status); }).length;
     $('familyActiveClaims').textContent = String(openClaims);
 
-    renderMemberTabs();
     renderTimeline();
-    renderPoliciesLedger();
     renderClaims();
   }
 
   function renderMemberTabs() {
     var wrap = $('familyMemberTabs');
+    if (!wrap) { return; } // member filter removed from Home
     wrap.innerHTML = '';
     var tabs = [{ id: 'all', label: 'All family' }];
     family.profiles.forEach(function (p) {
@@ -547,21 +585,25 @@
     });
   }
 
+  // Upcoming renewals are derived from policy DOCUMENT expiry dates — the POC's own
+  // and any family-linked documents — not the hand-filled ledger. Any doc that
+  // carries an expiry date counts (POC or family); soonest expiry first.
   function renderTimeline() {
     var ul = $('familyTimeline');
+    if (!ul) { return; }
     ul.innerHTML = '';
-    var upcoming = filteredPolicies()
-      .filter(function (p) { return toDate(p.renewalDate); })
-      .sort(function (a, b) { return toDate(a.renewalDate) - toDate(b.renewalDate); })
-      .slice(0, 3);
+    var upcoming = (clientDocsCache || [])
+      .filter(function (d) { return toDate(d.expiryDate); })
+      .sort(function (a, b) { return toDate(a.expiryDate) - toDate(b.expiryDate); });
     if (!upcoming.length) { ul.appendChild(el('li', 'portal-empty', 'No upcoming renewals.')); return; }
-    upcoming.forEach(function (p) {
+    upcoming.forEach(function (d) {
       var li = el('li', 'portal-timeline-item');
       var left = el('div', 'portal-tl-main');
-      left.appendChild(el('span', 'portal-tl-title', (p.policyType || p.insurer || 'Policy')));
-      left.appendChild(el('span', 'portal-tl-meta', profileName(p.profileId) + ' · ' + fmtDate(p.renewalDate)));
+      left.appendChild(el('span', 'portal-tl-title', d.fileName || 'Policy'));
+      var who = d.linkedViaFamily ? 'Family member' : profileName(d.profileId);
+      left.appendChild(el('span', 'portal-tl-meta', who + ' · ' + fmtDate(d.expiryDate)));
       li.appendChild(left);
-      var days = daysUntil(p.renewalDate);
+      var days = daysUntil(d.expiryDate);
       var pillText = days == null ? '' : (days < 0 ? 'Overdue' : (days === 0 ? 'Due today' : 'in ' + days + 'd'));
       var pill = el('span', 'portal-tl-pill' + (days != null && days <= 14 ? ' is-soon' : ''), pillText);
       li.appendChild(pill);
@@ -571,6 +613,7 @@
 
   function renderPoliciesLedger() {
     var ul = $('familyPolicies');
+    if (!ul) { return; } // Policies & premiums removed from Home
     ul.innerHTML = '';
     var pols = filteredPolicies();
     if (!pols.length) { ul.appendChild(el('li', 'portal-empty', 'No policies to show.')); return; }
@@ -626,50 +669,53 @@
       li.appendChild(main);
       var done = isClaimDone(c.status);
       li.appendChild(el('span', 'portal-claim-status' + (done ? ' is-done' : ''), c.status || 'In progress'));
+      // Documents-pending claims get an inline multi-file upload (iOS HEIC ok).
+      if (isPendingDocs(c.status)) { li.classList.add('has-upload'); li.appendChild(buildClaimUpload(c)); }
       ul.appendChild(li);
     });
   }
 
-  // ---- family wiring ----
-  $('familyModeSwitch').addEventListener('change', function () { setFamilyMode(this.checked); });
-  $('familyActivate').addEventListener('click', function () { setFamilyMode(true); });
-  $('familyActivateModal').addEventListener('click', function () { $('modalFamily').hidden = true; setFamilyMode(true); });
-  $('familyLearnMore').addEventListener('click', function () { $('modalFamily').hidden = false; });
-  $('familyDismiss').addEventListener('click', function () {
-    localStorage.setItem('portalFamilyBannerDismissed', '1');
-    $('familyOptinBanner').hidden = true;
-  });
+  // (Family Mode is always on now — the old opt-in banner/toggle were removed.)
 
   // ============================================================
   // PROFILE + DASHBOARD PANELS (Claims / Expired Policies)
   // ============================================================
-  var profile = { firstName: '', lastName: '', email: '', phone: '' };
+  var profile = { firstName: '', lastName: '', email: '', phone: '', sumInsured: 0 };
 
   function loadProfile() {
     gasGet({ action: 'getProfile', email: getEmail() })
       .then(function (data) {
         if (data && data.status === 'success') {
-          profile = { firstName: data.firstName || '', lastName: data.lastName || '', email: data.email || getEmail(), phone: String(data.phone || '').trim() };
+          profile = { firstName: data.firstName || '', lastName: data.lastName || '', email: data.email || getEmail(), phone: String(data.phone || '').trim(), sumInsured: Number(data.sumInsured) || 0 };
           fillProfileModal();
           $('phoneWarning').hidden = !!profile.phone; // nag only when we KNOW there's no phone
           maybeNudgePhone();
         } else {
-          profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '' };
+          profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '', sumInsured: 0 };
           fillProfileModal();
           $('phoneWarning').hidden = true;
         }
+        // The POC's own account Sum Insured feeds the Total Family Cover aggregate;
+        // re-render the hub now that we have it (loadFamily may have finished first).
+        if (familyModeOn()) { renderFamilyHub(); }
       })
       .catch(function () {
-        profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '' };
+        profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '', sumInsured: 0 };
         fillProfileModal();
         $('phoneWarning').hidden = true;
       });
   }
 
   function fillProfileModal() {
-    $('profileName').textContent = ((profile.firstName || '') + ' ' + (profile.lastName || '')).trim() || getName();
-    $('profileEmail').textContent = profile.email || getEmail();
+    var nm = ((profile.firstName || '') + ' ' + (profile.lastName || '')).trim() || getName();
+    var em = profile.email || getEmail();
+    $('profileName').textContent = nm;
+    $('profileEmail').textContent = em;
     $('profilePhone').value = profile.phone || '';
+    // Mirror onto the Profile tab card.
+    if ($('profileTabName')) { $('profileTabName').textContent = nm; }
+    if ($('profileTabEmail')) { $('profileTabEmail').textContent = em; }
+    if ($('profileTabPhone')) { $('profileTabPhone').textContent = profile.phone || '—'; }
   }
 
   function openProfile() {
@@ -687,8 +733,87 @@
     openProfile();
   }
 
-  $('navProfile').addEventListener('click', function () { closeDrawer(); openProfile(); });
+  $('navProfile').addEventListener('click', function () { closeDrawer(); switchTab('tab-profile'); });
   $('phoneWarning').addEventListener('click', openProfile);
+  $('profileEditBtn').addEventListener('click', openProfile);
+
+  // ============================================================
+  // BOTTOM NAV — client SPA tab switching (Home/Documents/Add/Claims/Profile)
+  // ============================================================
+  // Note: 'tab-addpolicy' is intentionally excluded — the center nav button opens
+  // the upload overlay (openAddPolicy) instead of switching to a tab.
+  var CLIENT_TABS = ['tab-home', 'tab-documents', 'tab-claims', 'tab-profile'];
+  function switchTab(id) {
+    if (CLIENT_TABS.indexOf(id) < 0) { id = 'tab-home'; }
+    CLIENT_TABS.forEach(function (t) { var n = $(t); if (n) { n.hidden = (t !== id); } });
+    document.querySelectorAll('.portal-bn').forEach(function (b) {
+      b.classList.toggle('is-active', b.getAttribute('data-tab') === id);
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  document.querySelectorAll('.portal-bn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var tab = b.getAttribute('data-tab');
+      if (tab === 'tab-addpolicy') { openAddPolicy(); return; }
+      switchTab(tab);
+    });
+  });
+
+  // ---- Claim Intimation overlay ----
+  $('claimIntimateBtn').addEventListener('click', function () { $('claimErr').hidden = true; $('modalClaim').hidden = false; });
+  $('claimClose').addEventListener('click', function () { $('modalClaim').hidden = true; });
+  $('claimContact').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 10); });
+
+  $('claimForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('claimErr'); err.hidden = true;
+    var f = {
+      policyNo: $('claimPolicyNo').value.trim(), insured: $('claimInsured').value.trim(),
+      patient: $('claimPatient').value.trim(), hospital: $('claimHospital').value.trim(),
+      hospitalAddr: $('claimHospitalAddr').value.trim(), admission: $('claimAdmission').value,
+      illness: $('claimIllness').value.trim(), contact: $('claimContact').value.trim()
+    };
+    if (!f.policyNo || !f.insured || !f.patient || !f.hospital || !f.hospitalAddr || !f.admission || !f.illness) {
+      return fieldErr(err, 'Please fill in every field.');
+    }
+    if (!/^[0-9]{10}$/.test(f.contact)) { return fieldErr(err, 'Please enter a valid 10-digit contact number.'); }
+    var btn = $('claimSubmit'); btn.disabled = true; btn.textContent = 'Sending…';
+    var products = 'CLAIM INTIMATION — Policy No: ' + f.policyNo + ' | Insured: ' + f.insured
+      + ' | Patient: ' + f.patient + ' | Hospital: ' + f.hospital + ', ' + f.hospitalAddr
+      + ' | Admitted: ' + f.admission + ' | Illness: ' + f.illness + ' | Contact: ' + f.contact;
+    postEnquiry({ name: f.insured, email: profile.email || getEmail(), mobile: f.contact, products: products })
+      .then(function () { status('ok', 'Claim intimated — Kevin has been notified.'); $('modalClaim').hidden = true; $('claimForm').reset(); })
+      .catch(function () { fieldErr(err, 'Could not send. Please check your connection and try again.'); })
+      .then(function () { btn.disabled = false; btn.textContent = 'Submit claim'; });
+  });
+
+  // ---- Custom quote request (Add Policy tab) ----
+  $('quoteForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('quoteErr'); err.hidden = true;
+    var type = $('quotePolicyType').value.trim();
+    if (type.length < 2) { return fieldErr(err, 'Please enter the policy type you want.'); }
+    var details = $('quoteDetails').value.trim();
+    var btn = $('quoteSubmit'); btn.disabled = true; btn.textContent = 'Sending…';
+    var products = 'Custom quote request — ' + type + (details ? ' | Details: ' + details : '');
+    postEnquiry({ name: getName(), email: profile.email || getEmail(), mobile: profile.phone || '', products: products })
+      .then(function () { status('ok', 'Request sent — Kevin will get back to you.'); $('quoteForm').reset(); })
+      .catch(function () { fieldErr(err, 'Could not send. Please try again.'); })
+      .then(function () { btn.disabled = false; btn.textContent = 'Request quote'; });
+  });
+
+  // Website enquiry Apps Script (emails Kevin) — same endpoint the site forms use.
+  // Separate from the portal endpoint; no-cors POST, so the reply is opaque.
+  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzFBqQZCBJ7trrzwTFUq6aOwlXslRdXMyrcTE-QuPB_QYQIbimvnJ4ZCzgyNM9qBuQCXw/exec';
+  function postEnquiry(fields) {
+    var data = new FormData();
+    data.append('name', fields.name || 'Portal user');
+    data.append('email', fields.email || '');
+    data.append('mobile', fields.mobile || '');
+    data.append('products', fields.products || '');
+    data.append('botcheck', '');
+    return fetch(ENQUIRY_ENDPOINT, { method: 'POST', body: data, mode: 'no-cors' });
+  }
 
   $('profileForm').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -716,44 +841,11 @@
   // ---- expandable dashboard panels (mutually exclusive) ----
   var activeDashboardPanel = null; // 'claims' | 'expired' | null
 
-  function closeAllPanels() {
-    activeDashboardPanel = null;
-    ['claims', 'expired'].forEach(function (n) {
-      $(n + 'Panel').hidden = true;
-      var t = $(n + 'Toggle'); t.classList.remove('is-open'); t.setAttribute('aria-expanded', 'false');
-    });
-  }
+  function closeAllPanels() { activeDashboardPanel = null; }
 
-  function togglePanel(name) {
-    if (activeDashboardPanel === name) { closeAllPanels(); return; }
-    closeAllPanels();
-    activeDashboardPanel = name;
-    $(name + 'Panel').hidden = false;
-    var t = $(name + 'Toggle'); t.classList.add('is-open'); t.setAttribute('aria-expanded', 'true');
-  }
-
-  // Populate both panels from the current family data (re-run whenever it loads).
-  function renderDashboardPanels() { renderClaimsPanel(); renderExpiredPanel(); }
-
-  function renderClaimsPanel() {
-    var ul = $('claimsPanelList');
-    ul.innerHTML = '';
-    var claims = family.claims || [];
-    if (!claims.length) { ul.appendChild(el('li', 'portal-empty', 'No active or past claims found.')); return; }
-    claims.forEach(function (c) {
-      var li = el('li', 'portal-claim-item');
-      var main = el('div', 'portal-claim-main');
-      main.appendChild(el('span', 'portal-claim-title', profileName(c.profileId) + ' · ' + (c.policyType || 'Policy')));
-      if (c.actionRequired) { main.appendChild(el('span', 'portal-claim-action', c.actionRequired)); }
-      if (c.lastUpdated) { main.appendChild(el('span', 'portal-claim-meta', 'Updated ' + fmtDate(c.lastUpdated))); }
-      li.appendChild(main);
-      var done = isClaimDone(c.status);
-      li.appendChild(el('span', 'portal-claim-status' + (done ? ' is-done' : ''), c.status || 'In progress'));
-      // Documents-pending claims get an inline multi-file upload (iOS HEIC ok).
-      if (isPendingDocs(c.status)) { li.classList.add('has-upload'); li.appendChild(buildClaimUpload(c)); }
-      ul.appendChild(li);
-    });
-  }
+  // The Expired archive lives on the Documents tab; the Claims tracker (with its
+  // pending-docs uploads) is rendered by renderClaims() on the Claims tab.
+  function renderDashboardPanels() { renderExpiredPanel(); }
 
   function isPendingDocs(status) { return /pending/i.test(status || ''); }
 
@@ -778,6 +870,7 @@
 
   function renderExpiredPanel() {
     var ul = $('expiredPanelList');
+    if (!ul) { return; } // Expired archive folded into the "Your Policies" Active/Expired filter.
     ul.innerHTML = '';
     var todayMs = new Date().setHours(0, 0, 0, 0);
     var expired = (family.policies || []).filter(function (p) {
@@ -809,16 +902,21 @@
     return 'https://wa.me/918369988285?text=' + encodeURIComponent(msg);
   }
 
-  $('claimsToggle').addEventListener('click', function () { togglePanel('claims'); });
-  $('expiredToggle').addEventListener('click', function () { togglePanel('expired'); });
-  $('claimsPanelClose').addEventListener('click', closeAllPanels);
-  $('expiredPanelClose').addEventListener('click', closeAllPanels);
-
-  // Scroll a just-opened panel into view.
+  // A notification jump now switches to the relevant tab (claims → Claims,
+  // renewal/expired → Documents where the Expired list lives).
   function scrollToPanel(name) {
-    togglePanel(name);
-    var p = $(name + 'Panel');
-    if (p && !p.hidden) { p.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    if (name === 'claims') { switchTab('tab-claims'); return; }
+    // renewal/expired notifications land on Documents, showing the Expired filter.
+    if (name === 'expired') {
+      policyFilter = 'expired';
+      document.querySelectorAll('#policyFilter .portal-filter-btn').forEach(function (o) {
+        var on = o.getAttribute('data-filter') === 'expired';
+        o.classList.toggle('is-active', on);
+        o.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      renderPoliciesDocs();
+    }
+    switchTab('tab-documents');
   }
 
   // ============================================================
@@ -1565,25 +1663,11 @@
   ['dragleave', 'drop'].forEach(function (ev) { adminDrop.addEventListener(ev, function (e) { e.preventDefault(); adminDrop.classList.remove('is-drag'); }); });
   adminDrop.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files) { addAdminFiles(e.dataTransfer.files); } });
 
-  // Load the selected account's sub-profiles into the "Attach to" selector.
-  $('adminTargetUser').addEventListener('change', function () {
-    var sel = $('adminTargetProfile');
-    sel.innerHTML = '<option value="">The account (main POC)</option>';
-    var email = this.value;
-    if (!email) { return; }
-    gasGet({ action: 'getSubProfiles', email: getEmail(), parentEmail: email }).then(function (data) {
-      ((data && data.status === 'success' && data.profiles) || []).forEach(function (p) {
-        var opt = el('option', null, p.name + (p.relation ? ' (' + p.relation + ')' : ''));
-        opt.value = p.profileId; sel.appendChild(opt);
-      });
-    }).catch(function () {});
-  });
-
   $('adminSendForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var err = $('adminErr'); err.hidden = true;
     var target = $('adminTargetUser').value;
-    var profileId = $('adminTargetProfile').value || '';
+    var profileId = ''; // documents attach to the account (POC); no per-profile targeting
     if (!target) { return fieldErr(err, 'Please select a client.'); }
     if (!adminStaged.length) { return fieldErr(err, 'Please add at least one file to send.'); }
     if (adminStaged.some(function (s) { return !s.expiry; })) { return fieldErr(err, 'Please set an expiry date for every file.'); }
@@ -1595,7 +1679,7 @@
     function next() {
       if (i >= total) {
         status('ok', total + ' document' + (total > 1 ? 's' : '') + ' sent to ' + target + '.');
-        adminStaged = []; renderAdminStaged(); $('adminTargetProfile').value = '';
+        adminStaged = []; renderAdminStaged();
         if (selectedUser && (selectedUser.email || '').toLowerCase() === target.toLowerCase()) {
           setTimeout(function () { loadClientDocs(selectedUser.email); }, 1200);
         }
@@ -1650,6 +1734,8 @@
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDrawer(); closeNotifCenter(); } });
 
   $('navLogout').addEventListener('click', function () { closeDrawer(); stopNotifPolling(); clearSession(); showView('home-view'); });
+  // Client logout now lives on the Profile tab (below "Edit details").
+  $('profileLogoutBtn').addEventListener('click', function () { stopNotifPolling(); clearSession(); showView('home-view'); });
   $('navAbout').addEventListener('click', function () { $('modalAbout').hidden = false; });
   document.querySelectorAll('[data-close-modal]').forEach(function (b) {
     b.addEventListener('click', function () { b.closest('.pmodal').hidden = true; });
