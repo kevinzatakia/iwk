@@ -549,6 +549,20 @@ body.portal { min-height: 100vh; }
 .portal-famcard-btn:hover { border-color: var(--green); color: var(--green); }
 .portal-famcard-docs { margin-top: 12px; }
 .portal-famcard-docs[hidden] { display: none; }
+/* POC identity card (shown at the top of a dependent member's family roster). */
+.portal-famcard-poc { background: var(--green-tint); border-color: rgba(23, 105, 74, .28); }
+/* "You" badge marking the viewing member's own card. */
+.portal-member-you { font-size: 11.5px; font-weight: 800; color: #fff; background: var(--green); border-radius: 999px; padding: 3px 9px; }
+
+/* Claim-submitted success popup */
+.pmodal-success { text-align: center; }
+.pmodal-success-ico {
+  width: 60px; height: 60px; margin: 4px auto 14px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 32px; font-weight: 700; line-height: 1;
+  color: #fff; background: var(--green); box-shadow: 0 10px 24px -10px rgba(23, 105, 74, .6);
+}
+.pmodal-success h3 { margin-bottom: 8px; }
+.pmodal-success p { color: var(--ink-soft); font-size: 14.5px; margin-bottom: 18px; }
 
 /* "Linked via Family Account" tag on inherited documents */
 .portal-doc-tag {

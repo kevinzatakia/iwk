@@ -104,6 +104,8 @@
           <label class="f-label" for="regPhone">Phone number</label>
           <input class="f" id="regPhone" name="phone" type="tel" inputmode="numeric" maxlength="10"
             autocomplete="tel" placeholder="10-digit mobile number" required>
+          <label class="f-label" for="regDob">Date of birth <span class="f-optional">(optional)</span></label>
+          <input class="f" id="regDob" name="dob" type="date" autocomplete="bday">
           <div class="portal-grid">
             <div>
               <label class="f-label" for="regPin">4-digit PIN</label>
@@ -488,6 +490,8 @@
         <label class="f-label" for="profilePhone">Phone number</label>
         <input class="f" id="profilePhone" name="phone" type="tel" inputmode="numeric" maxlength="10"
           autocomplete="tel" placeholder="10-digit mobile number">
+        <label class="f-label" for="profileDob">Date of birth <span class="f-optional">(optional)</span></label>
+        <input class="f" id="profileDob" name="dob" type="date" autocomplete="bday">
         <div class="portal-err" id="profileErr" hidden></div>
         <button type="submit" class="btn btn-primary portal-block" id="profileSaveBtn">Save profile</button>
       </form>
@@ -589,6 +593,16 @@
       <h3>Add a policy</h3>
       <p class="pmodal-lead">Upload your policy document and Kevin will add it to your portal.</p>
       <div id="addPolicyMount"></div>
+    </div>
+  </div>
+
+  <!-- Claim submitted confirmation -->
+  <div class="pmodal" id="modalClaimSuccess" hidden>
+    <div class="pmodal-box pmodal-success">
+      <div class="pmodal-success-ico" aria-hidden="true">✓</div>
+      <h3>Claim submitted</h3>
+      <p>Your claim has been intimated — Kevin has been notified and will get in touch with you shortly.</p>
+      <button type="button" class="btn btn-primary portal-block" data-close-modal>Done</button>
     </div>
   </div>
 

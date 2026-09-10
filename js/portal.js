@@ -8,7 +8,7 @@
   // ============================================================
   // Paste the /exec URL of the deployed portal Apps Script (see
   // apps-script-portal-endpoint.gs) here:
-  var PORTAL_ENDPOINT = 'https://script.google.com/macros/s/AKfycbw4u2CQ_efvM_4pRts-_lZjbg453a1m_47klsPwhhP0As_1952G8TcEjhguNK7_AKn8/exec';
+  var PORTAL_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzmtXzedSrhzr5Jq7rFTzdNFuzFl593oWpDVrnTcLWmDjoZgEcFzW1lHOWlStufYgUs/exec';
   // The one email address that unlocks the admin dashboard:
   var ADMIN_EMAIL = 'admin@insureitwithkevin.in';
 
@@ -156,6 +156,7 @@
     var last = $('regLast').value.trim();
     var email = $('regEmail').value.trim();
     var phone = $('regPhone').value.trim();
+    var dob = $('regDob').value;
     var pin = $('regPin').value;
     var pin2 = $('regPin2').value;
 
@@ -166,7 +167,7 @@
     if (pin !== pin2) { return fieldErr(err, 'The two PINs do not match.'); }
 
     var btn = $('registerBtn'); btn.disabled = true; btn.textContent = 'Creating…';
-    gasGet({ action: 'register', firstName: first, lastName: last, email: email, phone: phone, pin: pin })
+    gasGet({ action: 'register', firstName: first, lastName: last, email: email, phone: phone, dob: dob, pin: pin })
       .then(function (data) {
         if (data && data.status === 'success') {
           setSession(email, first);
@@ -208,7 +209,9 @@
   // ============================================================
   // CLIENT DASHBOARD
   // ============================================================
-  function docRow(doc) {
+  // readOnly hides the Delete control — used when a member views another family
+  // member's or the POC's documents (they may view, not delete).
+  function docRow(doc, readOnly) {
     var li = el('li');
     var main = el('div', 'portal-doc-main');
     var a = el('a', null, doc.fileName || 'Document');
@@ -221,6 +224,7 @@
     if (doc.linkedViaFamily) { main.appendChild(el('span', 'portal-doc-tag', 'Linked via Family Account')); }
     li.appendChild(main);
 
+    if (readOnly) { return li; }
     var del = el('button', 'portal-doc-del', 'Delete');
     del.type = 'button';
     del.setAttribute('aria-label', 'Delete ' + (doc.fileName || 'document'));
@@ -552,12 +556,14 @@
   // Populate the family state + hub from a getFamily payload. Shared by the
   // standalone loadFamily() and the bootstrap fan-out.
   function applyFamily(data) {
-    family = { isFamilyPoc: false, role: 'POC', pocEmail: getEmail(), myProfileId: '', accountSumInsured: 0, profiles: [], policies: [], claims: [] };
+    family = { isFamilyPoc: false, role: 'POC', pocEmail: getEmail(), pocName: '', pocDob: '', myProfileId: '', accountSumInsured: 0, profiles: [], policies: [], claims: [] };
     if (data && data.status === 'success') {
       family = {
         isFamilyPoc: !!data.isFamilyPoc,
         role: data.role === 'MEMBER' ? 'MEMBER' : 'POC',
         pocEmail: data.pocEmail || getEmail(),
+        pocName: data.pocName || '',
+        pocDob: data.pocDob || '',
         myProfileId: data.myProfileId || '',
         accountSumInsured: Number(data.accountSumInsured) || 0,
         profiles: data.profiles || [],
@@ -694,18 +700,18 @@
   // ============================================================
   // PROFILE + DASHBOARD PANELS (Claims / Expired Policies)
   // ============================================================
-  var profile = { firstName: '', lastName: '', email: '', phone: '', sumInsured: 0 };
+  var profile = { firstName: '', lastName: '', email: '', phone: '', sumInsured: 0, dob: '' };
 
   // Populate the profile card from a getProfile payload. Shared by loadProfile()
   // and the bootstrap fan-out.
   function applyProfile(data) {
     if (data && data.status === 'success') {
-      profile = { firstName: data.firstName || '', lastName: data.lastName || '', email: data.email || getEmail(), phone: String(data.phone || '').trim(), sumInsured: Number(data.sumInsured) || 0 };
+      profile = { firstName: data.firstName || '', lastName: data.lastName || '', email: data.email || getEmail(), phone: String(data.phone || '').trim(), sumInsured: Number(data.sumInsured) || 0, dob: data.dob || '' };
       fillProfileModal();
       $('phoneWarning').hidden = !!profile.phone; // nag only when we KNOW there's no phone
       maybeNudgePhone();
     } else {
-      profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '', sumInsured: 0 };
+      profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '', sumInsured: 0, dob: '' };
       fillProfileModal();
       $('phoneWarning').hidden = true;
     }
@@ -718,7 +724,7 @@
     gasGet({ action: 'getProfile', email: getEmail() })
       .then(applyProfile)
       .catch(function () {
-        profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '', sumInsured: 0 };
+        profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '', sumInsured: 0, dob: '' };
         fillProfileModal();
         $('phoneWarning').hidden = true;
       });
@@ -730,6 +736,7 @@
     $('profileName').textContent = nm;
     $('profileEmail').textContent = em;
     $('profilePhone').value = profile.phone || '';
+    if ($('profileDob')) { $('profileDob').value = profile.dob || ''; }
     // Mirror onto the Profile tab card.
     if ($('profileTabName')) { $('profileTabName').textContent = nm; }
     if ($('profileTabEmail')) { $('profileTabEmail').textContent = em; }
@@ -780,6 +787,7 @@
   // ---- Claim Intimation overlay ----
   $('claimIntimateBtn').addEventListener('click', function () { $('claimErr').hidden = true; $('modalClaim').hidden = false; });
   $('claimClose').addEventListener('click', function () { $('modalClaim').hidden = true; });
+  function showClaimSuccess() { var m = $('modalClaimSuccess'); if (m) { m.hidden = false; } }
   $('claimContact').addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 10); });
 
   $('claimForm').addEventListener('submit', function (e) {
@@ -795,35 +803,39 @@
       return fieldErr(err, 'Please fill in every field.');
     }
     if (!/^[0-9]{10}$/.test(f.contact)) { return fieldErr(err, 'Please enter a valid 10-digit contact number.'); }
-    var btn = $('claimSubmit'); btn.disabled = true; btn.textContent = 'Sending…';
     var products = 'CLAIM INTIMATION — Policy No: ' + f.policyNo + ' | Insured: ' + f.insured
       + ' | Patient: ' + f.patient + ' | Hospital: ' + f.hospital + ', ' + f.hospitalAddr
       + ' | Admitted: ' + f.admission + ' | Illness: ' + f.illness + ' | Contact: ' + f.contact;
-    // Two Google-Scripts calls (no EmailJS): persist the claim on the portal backend
-    // — under the POC's account, tagged with this submitter, status "Intimated" so it
-    // lands on the POC's Claims feed + Active Claims counter — AND email Kevin via the
-    // enquiry Apps Script. Best-effort: succeed if either channel reaches Kevin.
+
+    // OPTIMISTIC: confirm to the user immediately and run the two Google-Scripts
+    // calls in the BACKGROUND. Waiting on both round-trips (a JSONP persist that can
+    // queue behind other portal calls + an enquiry POST) is what made this feel slow.
+    var btn = $('claimSubmit'); btn.disabled = false; btn.textContent = 'Submit claim';
+    $('modalClaim').hidden = true; $('claimForm').reset();
+    var cur = parseInt($('familyActiveClaims').textContent, 10); if (isNaN(cur)) { cur = 0; }
+    $('familyActiveClaims').textContent = String(cur + 1); // optimistic +1
+    showClaimSuccess();
+
+    // Persist on the portal backend (feeds the POC's Claims feed + counter) AND email
+    // Kevin via the enquiry Apps Script. Both are best-effort; reconcile/roll back after.
     var persist = gasGet({
       action: 'submitClaim', email: getEmail(),
       policyNo: f.policyNo, insured: f.insured, patient: f.patient, hospital: f.hospital,
       hospitalAddr: f.hospitalAddr, admission: f.admission, illness: f.illness, contact: f.contact
-    }).then(function (r) { return (r && r.status === 'success') ? r : null; }, function () { return null; });
+    }).then(function (r) { return !!(r && r.status === 'success'); }, function () { return false; });
     var mail = postEnquiry({ name: f.insured, email: profile.email || getEmail(), mobile: f.contact, products: products })
       .then(function () { return true; }, function () { return false; });
     Promise.all([persist, mail]).then(function (res) {
       var saved = res[0], mailed = res[1];
-      if (!saved && !mailed) { fieldErr(err, 'Could not send. Please check your connection and try again.'); return; }
-      status('ok', 'Claim intimated — Kevin has been notified.');
-      $('modalClaim').hidden = true; $('claimForm').reset();
       if (saved) {
-        // Immediate +1 on the Active Claims counter, then reload the family so the
-        // count reconciles to the authoritative server figure (POC sees all family
-        // claims; the submitting member sees their own).
-        var cur = parseInt($('familyActiveClaims').textContent, 10); if (isNaN(cur)) { cur = 0; }
-        $('familyActiveClaims').textContent = String(cur + 1);
-        loadFamily();
+        loadFamily(); // reconcile the counter/feed to the authoritative server figure
+      } else if (!mailed) {
+        // Neither channel confirmed — undo the optimistic +1 and warn.
+        var c2 = parseInt($('familyActiveClaims').textContent, 10);
+        if (!isNaN(c2) && c2 > 0) { $('familyActiveClaims').textContent = String(c2 - 1); }
+        status('err', 'We could not confirm your claim reached Kevin — please call him, or try again.');
       }
-    }).then(function () { btn.disabled = false; btn.textContent = 'Submit claim'; });
+    });
   });
 
   // ---- Custom quote request (Add Policy tab) ----
@@ -859,12 +871,14 @@
     var err = $('profileErr'); err.hidden = true;
     var phone = $('profilePhone').value.trim();
     if (phone && !/^[0-9]{10}$/.test(phone)) { return fieldErr(err, 'Please enter a valid 10-digit phone number.'); }
+    var dob = $('profileDob') ? $('profileDob').value : '';
 
     var btn = $('profileSaveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
-    gasGet({ action: 'updateProfile', email: getEmail(), phone: phone })
+    gasGet({ action: 'updateProfile', email: getEmail(), phone: phone, dob: dob })
       .then(function (data) {
         if (data && data.status === 'success') {
           profile.phone = String(data.phone || phone).trim();
+          profile.dob = data.dob || dob || '';
           fillProfileModal();
           $('phoneWarning').hidden = !!profile.phone;
           status('ok', 'Profile updated.');
@@ -1265,24 +1279,58 @@
   function renderFamilyProfiles(profiles) {
     var wrap = $('familyProfilesList');
     wrap.innerHTML = '';
-    if (!profiles.length) { wrap.appendChild(el('div', 'portal-empty', 'No family members yet — add one to get started.')); return; }
-    profiles.forEach(function (p) {
-      var card = el('div', 'portal-famcard');
+    var list = (profiles || []).slice();
+    // A dependent member sees the WHOLE family: the POC at the top, then their
+    // relatives — but NOT their own card (redundant; their details are shown
+    // elsewhere on the page). A POC sees just the dependents they manage.
+    if (isMember()) {
+      list = list.filter(function (p) { return String(p.profileId) !== String(family.myProfileId); });
+      if (family.pocEmail) {
+        list.unshift({ isPoc: true, profileId: '', name: family.pocName || 'Primary account holder', relation: 'Primary · POC', profileEmail: family.pocEmail, dob: family.pocDob });
+      }
+    }
+    if (!list.length) {
+      wrap.appendChild(el('div', 'portal-empty', isMember() ? 'No family members linked yet.' : 'No family members yet — add one to get started.'));
+      return;
+    }
+    list.forEach(function (p) {
+      var card = el('div', 'portal-famcard' + (p.isPoc ? ' portal-famcard-poc' : ''));
       var head = el('div', 'portal-famcard-head');
       var info = el('div', 'portal-famcard-info');
       var nameRow = el('div', 'portal-famcard-name');
       nameRow.appendChild(document.createTextNode(p.name || 'Member'));
+      if (!p.isPoc && p.profileId && family.myProfileId && String(p.profileId) === String(family.myProfileId)) {
+        nameRow.appendChild(el('span', 'portal-member-rel portal-member-you', 'You'));
+      }
       if (p.relation) { nameRow.appendChild(el('span', 'portal-member-rel', p.relation)); }
       info.appendChild(nameRow);
       var meta = []; if (p.profileEmail) { meta.push(p.profileEmail); } if (p.dob) { meta.push('DOB ' + fmtDate(p.dob)); }
       if (docCountLabel(p.docCount)) { meta.push(docCountLabel(p.docCount)); }
       if (meta.length) { info.appendChild(el('div', 'portal-famcard-meta', meta.join(' · '))); }
       head.appendChild(info);
+
       var actions = el('div', 'portal-famcard-actions');
+      var docsWrap = el('ul', 'portal-doclist portal-famcard-docs'); docsWrap.hidden = true;
+      // Documents: the POC card pulls the POC's own docs (by email); a member card
+      // pulls that member's docs (by profileId). A dependent member views only, so
+      // docRow is rendered read-only (no Delete).
       var docsBtn = el('button', 'portal-famcard-btn', 'Documents'); docsBtn.type = 'button';
       actions.appendChild(docsBtn);
-      // Editing a family member is POC-only; a dependent member's view is read-only.
-      if (!isMember()) {
+      docsBtn.addEventListener('click', function () {
+        if (!docsWrap.hidden) { docsWrap.hidden = true; return; }
+        docsWrap.innerHTML = ''; docsWrap.appendChild(el('li', 'portal-empty', 'Loading…')); docsWrap.hidden = false;
+        var req = p.isPoc
+          ? gasGet({ action: 'getDocuments', email: family.pocEmail })
+          : gasGet({ action: 'getProfileDocs', email: getEmail(), profileId: p.profileId, profileEmail: p.profileEmail });
+        req.then(function (data) {
+          var docs = (data && data.documents) || [];
+          docsWrap.innerHTML = '';
+          if (!docs.length) { docsWrap.appendChild(el('li', 'portal-empty', 'No documents yet.')); }
+          else { docs.forEach(function (d) { docsWrap.appendChild(docRow(d, isMember())); }); }
+        }).catch(function () { docsWrap.innerHTML = ''; docsWrap.appendChild(el('li', 'portal-empty', 'Could not load.')); });
+      });
+      // Editing a family member is POC-only (never a dependent member, never the POC card).
+      if (!p.isPoc && !isMember()) {
         var editBtn = el('button', 'portal-famcard-btn', 'Edit'); editBtn.type = 'button';
         actions.appendChild(editBtn);
         editBtn.addEventListener('click', function () {
@@ -1291,20 +1339,7 @@
       }
       head.appendChild(actions);
       card.appendChild(head);
-      var docsWrap = el('ul', 'portal-doclist portal-famcard-docs'); docsWrap.hidden = true;
       card.appendChild(docsWrap);
-      docsBtn.addEventListener('click', function () {
-        if (!docsWrap.hidden) { docsWrap.hidden = true; return; }
-        docsWrap.innerHTML = ''; docsWrap.appendChild(el('li', 'portal-empty', 'Loading…')); docsWrap.hidden = false;
-        gasGet({ action: 'getProfileDocs', email: getEmail(), profileId: p.profileId, profileEmail: p.profileEmail })
-          .then(function (data) {
-            var docs = (data && data.documents) || [];
-            docsWrap.innerHTML = '';
-            if (!docs.length) { docsWrap.appendChild(el('li', 'portal-empty', 'No documents for this member yet.')); }
-            else { docs.forEach(function (d) { docsWrap.appendChild(docRow(d)); }); }
-          })
-          .catch(function () { docsWrap.innerHTML = ''; docsWrap.appendChild(el('li', 'portal-empty', 'Could not load.')); });
-      });
       wrap.appendChild(card);
     });
   }
