@@ -8,7 +8,7 @@
   // ============================================================
   // Paste the /exec URL of the deployed portal Apps Script (see
   // apps-script-portal-endpoint.gs) here:
-  var PORTAL_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyZYIJe1a4bRcchaqDogXH5TdJwGi4eevkFnateEWEyiBIr_bktQfYjL4zzKcjS4K2s/exec';
+  var PORTAL_ENDPOINT = 'https://script.google.com/macros/s/AKfycbw4u2CQ_efvM_4pRts-_lZjbg453a1m_47klsPwhhP0As_1952G8TcEjhguNK7_AKn8/exec';
   // The one email address that unlocks the admin dashboard:
   var ADMIN_EMAIL = 'admin@insureitwithkevin.in';
 
@@ -235,7 +235,7 @@
     btn.disabled = true; btn.textContent = 'Deleting…';
     gasGet({ action: 'deleteDocument', email: getEmail(), fileURL: doc.fileURL })
       .then(function (data) {
-        if (data && data.status === 'success') { status('ok', 'Deleted.'); loadClient(); }
+        if (data && data.status === 'success') { status('ok', 'Deleted.'); loadDocuments(); }
         else { status('err', (data && data.message) || 'Could not delete.'); btn.disabled = false; btn.textContent = 'Delete'; }
       })
       .catch(function (e2) { status('err', e2.message || 'Could not delete.'); btn.disabled = false; btn.textContent = 'Delete'; });
@@ -267,32 +267,72 @@
     $('clientName').textContent = getName();
     switchTab('tab-home');
     closeAllPanels();
+    setDocsLoading();
+    loadBootstrap();
+    startNotifPolling();
+    maybeShowPushOptin();
+  }
+
+  function setDocsLoading() {
+    var pol = $('policiesList'), up = $('uploadsList');
+    pol.innerHTML = ''; pol.appendChild(el('li', 'portal-empty', 'Loading…'));
+    up.innerHTML = ''; up.appendChild(el('li', 'portal-empty', 'Loading…'));
+  }
+
+  // ONE cold-load round-trip replacing the old 5–6 separate JSONP reads (the
+  // dominant load latency). Fans the single payload out to the same appliers the
+  // individual loaders use.
+  function loadBootstrap() {
+    gasGet({ action: 'bootstrap', email: getEmail() })
+      .then(function (b) {
+        if (b && b.status === 'success') {
+          applyProfile(b.profile);
+          applyFamily(b.family);
+          renderFamilyProfiles((b.subProfiles && b.subProfiles.profiles) || []);
+          applyNotifications(b.notifications);
+          applyDocuments(b.documents);
+          return;
+        }
+        // Old backend without the bootstrap action → use the individual reads once.
+        // (Only this case falls back; a timeout must NOT, or it piles 5 more slow
+        // calls onto Apps Script's serialized per-user queue.)
+        if (b && /unknown action/i.test(b.message || '')) { loadClientLegacy(); return; }
+        status('err', (b && b.message) || 'Could not load your portal. Please pull to refresh.');
+      })
+      .catch(function (e) {
+        status('err', (e && e.message) || 'Loading is taking longer than usual. Please refresh.');
+      });
+  }
+
+  function loadClientLegacy() {
     loadProfile();
     loadFamily();
     loadFamilyProfiles();
     loadNotifications();
-    startNotifPolling();
-    maybeShowPushOptin();
-    var pol = $('policiesList'), up = $('uploadsList');
-    pol.innerHTML = ''; pol.appendChild(el('li', 'portal-empty', 'Loading…'));
-    up.innerHTML = ''; up.appendChild(el('li', 'portal-empty', 'Loading…'));
+    loadDocuments();
+  }
 
+  function loadDocuments() {
+    setDocsLoading();
     gasGet({ action: 'getDocuments', email: getEmail() })
-      .then(function (data) {
-        var docs = (data && data.documents) || [];
-        clientDocsCache = docs; // for per-sub-profile document reveal
-        var policies = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() === 'admin'; });
-        var uploads = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() !== 'admin'; });
-        adminPoliciesCache = policies;
-        renderPoliciesDocs();
-        renderTimeline(); // renewals are derived from document expiry dates
-        renderList(up, uploads, 'You haven\'t uploaded anything yet.');
-      })
+      .then(applyDocuments)
       .catch(function (e2) {
+        var pol = $('policiesList'), up = $('uploadsList');
         pol.innerHTML = ''; pol.appendChild(el('li', 'portal-empty', 'Could not load.'));
         up.innerHTML = ''; up.appendChild(el('li', 'portal-empty', 'Could not load.'));
-        status('err', e2.message || 'Could not load your documents.');
+        status('err', (e2 && e2.message) || 'Could not load your documents.');
       });
+  }
+
+  function applyDocuments(data) {
+    var docs = (data && data.documents) || [];
+    clientDocsCache = docs; // for per-sub-profile document reveal
+    var policies = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() === 'admin'; });
+    var uploads = docs.filter(function (d) { return (d.uploadedBy || '').toLowerCase() !== 'admin'; });
+    adminPoliciesCache = policies;
+    renderPoliciesDocs();
+    renderTimeline(); // renewals are derived from document expiry dates
+    renderList($('uploadsList'), uploads, 'You haven\'t uploaded anything yet.');
   }
 
   function renderList(ul, docs, emptyMsg) {
@@ -326,7 +366,10 @@
         });
       });
     });
-    return chain.then(function () { loadClient(); return ok; });
+    // Only the documents changed — refresh just those (one light getDocuments call)
+    // instead of re-running the whole heavy bootstrap, which right after a Drive
+    // write can queue behind it (Apps Script serializes a user's calls) and time out.
+    return chain.then(function () { loadDocuments(); return ok; });
   }
 
   // Shared verify modal: openVerifyUpload(count, onYes) → Yes runs onYes.
@@ -506,27 +549,33 @@
   }
   function isClaimDone(status) { return /complete|approv|settl|paid|closed|done/i.test(status || ''); }
 
-  function loadFamily() {
+  // Populate the family state + hub from a getFamily payload. Shared by the
+  // standalone loadFamily() and the bootstrap fan-out.
+  function applyFamily(data) {
     family = { isFamilyPoc: false, role: 'POC', pocEmail: getEmail(), myProfileId: '', accountSumInsured: 0, profiles: [], policies: [], claims: [] };
+    if (data && data.status === 'success') {
+      family = {
+        isFamilyPoc: !!data.isFamilyPoc,
+        role: data.role === 'MEMBER' ? 'MEMBER' : 'POC',
+        pocEmail: data.pocEmail || getEmail(),
+        myProfileId: data.myProfileId || '',
+        accountSumInsured: Number(data.accountSumInsured) || 0,
+        profiles: data.profiles || [],
+        policies: data.policies || [],
+        claims: data.claims || []
+      };
+    }
+    applyRoleGuardrails();
+    renderFamilyChrome();
+    if (familyModeOn()) { renderFamilyHub(); }
+  }
+
+  function loadFamily() {
     gasGet({ action: 'getFamily', email: getEmail() })
       .then(function (data) {
-        if (data && data.status === 'success') {
-          family = {
-            isFamilyPoc: !!data.isFamilyPoc,
-            role: data.role === 'MEMBER' ? 'MEMBER' : 'POC',
-            pocEmail: data.pocEmail || getEmail(),
-            myProfileId: data.myProfileId || '',
-            accountSumInsured: Number(data.accountSumInsured) || 0,
-            profiles: data.profiles || [],
-            policies: data.policies || [],
-            claims: data.claims || []
-          };
-        }
-        applyRoleGuardrails();
-        renderFamilyChrome();
-        if (familyModeOn()) { renderFamilyHub(); }
-        // A dependent MEMBER sees the family roster too, but read-only — reload it
-        // under the POC's email now that getFamily has told us who the POC is.
+        applyFamily(data);
+        // Standalone reload path: a dependent MEMBER's read-only roster is refreshed
+        // under the POC's email (the bootstrap path supplies it inline instead).
         if (family.role === 'MEMBER') { loadFamilyProfiles(); }
       })
       .catch(function () { renderFamilyChrome(); }); // silent: family mode is a bonus, not core
@@ -647,23 +696,27 @@
   // ============================================================
   var profile = { firstName: '', lastName: '', email: '', phone: '', sumInsured: 0 };
 
+  // Populate the profile card from a getProfile payload. Shared by loadProfile()
+  // and the bootstrap fan-out.
+  function applyProfile(data) {
+    if (data && data.status === 'success') {
+      profile = { firstName: data.firstName || '', lastName: data.lastName || '', email: data.email || getEmail(), phone: String(data.phone || '').trim(), sumInsured: Number(data.sumInsured) || 0 };
+      fillProfileModal();
+      $('phoneWarning').hidden = !!profile.phone; // nag only when we KNOW there's no phone
+      maybeNudgePhone();
+    } else {
+      profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '', sumInsured: 0 };
+      fillProfileModal();
+      $('phoneWarning').hidden = true;
+    }
+    // The POC's own account Sum Insured feeds the Total Family Cover aggregate;
+    // re-render the hub now that we have it (order with loadFamily isn't fixed).
+    if (familyModeOn()) { renderFamilyHub(); }
+  }
+
   function loadProfile() {
     gasGet({ action: 'getProfile', email: getEmail() })
-      .then(function (data) {
-        if (data && data.status === 'success') {
-          profile = { firstName: data.firstName || '', lastName: data.lastName || '', email: data.email || getEmail(), phone: String(data.phone || '').trim(), sumInsured: Number(data.sumInsured) || 0 };
-          fillProfileModal();
-          $('phoneWarning').hidden = !!profile.phone; // nag only when we KNOW there's no phone
-          maybeNudgePhone();
-        } else {
-          profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '', sumInsured: 0 };
-          fillProfileModal();
-          $('phoneWarning').hidden = true;
-        }
-        // The POC's own account Sum Insured feeds the Total Family Cover aggregate;
-        // re-render the hub now that we have it (loadFamily may have finished first).
-        if (familyModeOn()) { renderFamilyHub(); }
-      })
+      .then(applyProfile)
       .catch(function () {
         profile = { firstName: getName(), lastName: '', email: getEmail(), phone: '', sumInsured: 0 };
         fillProfileModal();
@@ -874,16 +927,18 @@
   var notifTimer = null;
   var NOTIF_POLL_MS = 90000;
 
+  function applyNotifications(data) {
+    if (data && data.status === 'success') {
+      notifications = data.notifications || [];
+      renderNotifBadge(data.unread || 0);
+      renderNotifList();
+      maybeOsNotify();
+    }
+  }
+
   function loadNotifications() {
     gasGet({ action: 'getNotifications', email: getEmail() })
-      .then(function (data) {
-        if (data && data.status === 'success') {
-          notifications = data.notifications || [];
-          renderNotifBadge(data.unread || 0);
-          renderNotifList();
-          maybeOsNotify();
-        }
-      })
+      .then(applyNotifications)
       .catch(function () { /* silent — notifications are non-critical */ });
   }
 
