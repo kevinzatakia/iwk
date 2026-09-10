@@ -255,7 +255,7 @@
   // ===============================================================
   var WA_NUM = '918369988285';
   // Shared website enquiry endpoint (also used by the Health / Term / Workmen forms).
-  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzFBqQZCBJ7trrzwTFUq6aOwlXslRdXMyrcTE-QuPB_QYQIbimvnJ4ZCzgyNM9qBuQCXw/exec';
+  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwD5jcJdgk6hXAZAoy2Gz0h0IVaFkRMR2BBu3WkPH2dQ9CHxsVghtpu79TmmPqODpbY/exec';
 
   function sendEnquiry(submit, err, container) {
     var products = 'Personal Accident — Yearly income: ' + formData.income

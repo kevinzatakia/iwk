@@ -361,19 +361,35 @@
 
   // Uploads a list of files sequentially via the existing clientUpload action.
   // nameFn lets the caller prefix the stored filename (e.g. per claim).
-  function uploadFiles(files, nameFn) {
-    var chain = Promise.resolve(), ok = 0;
+  // notify: true → email Kevin a summary after the upload (used for "My Uploads",
+  // not for claim-document uploads, which the claim intimation already flags).
+  function uploadFiles(files, nameFn, notify) {
+    var chain = Promise.resolve(), ok = 0, uploaded = [];
     files.forEach(function (f) {
       chain = chain.then(function () {
         return readB64(f).then(function (b64) {
-          return gasUpload({ action: 'clientUpload', email: getEmail(), fileName: nameFn(f), mimeType: f.type || 'application/octet-stream', fileData: b64 }).then(function () { ok++; });
+          return gasUpload({ action: 'clientUpload', email: getEmail(), fileName: nameFn(f), mimeType: f.type || 'application/octet-stream', fileData: b64, expiryDate: f._expiry || '' })
+            .then(function () { ok++; uploaded.push(f.name + (f._expiry ? ' (expires ' + f._expiry + ')' : '')); });
         });
       });
     });
     // Only the documents changed — refresh just those (one light getDocuments call)
     // instead of re-running the whole heavy bootstrap, which right after a Drive
     // write can queue behind it (Apps Script serializes a user's calls) and time out.
-    return chain.then(function () { loadDocuments(); return ok; });
+    return chain.then(function () {
+      loadDocuments();
+      if (notify && ok) { notifyAdminUpload(uploaded); }
+      return ok;
+    });
+  }
+
+  // Best-effort email to Kevin when a client uploads document(s) — reuses the
+  // enquiry Apps Script (same path claims/quotes use), so no portal backend change.
+  function notifyAdminUpload(names) {
+    var who = ((profile.firstName || '') + ' ' + (profile.lastName || '')).trim() || getName();
+    var products = 'PORTAL UPLOAD — ' + who + ' (' + (profile.email || getEmail()) + ') uploaded '
+      + names.length + ' document' + (names.length > 1 ? 's' : '') + ': ' + names.join('; ');
+    postEnquiry({ name: who, email: profile.email || getEmail(), mobile: profile.phone || '', products: products });
   }
 
   // Shared verify modal: openVerifyUpload(count, onYes) → Yes runs onYes.
@@ -394,7 +410,9 @@
   });
 
   var uploaderSeq = 0;
-  // opts: { title, accept, multiple, note, commitLabel, onCommit(files) -> Promise<count> }
+  // opts: { title, accept, multiple, note, commitLabel, expiry, onCommit(files) -> Promise<count> }
+  //   expiry: true → each staged file shows an optional policy-expiry date input; the
+  //   chosen date rides on the File as f._expiry for onCommit/uploadFiles to send.
   function buildUploader(opts) {
     var staged = [];
     var seq = ++uploaderSeq;
@@ -441,6 +459,15 @@
         meta.appendChild(el('span', 'portal-staged-name', f.name));
         meta.appendChild(el('span', 'portal-staged-size', formatBytes(f.size)));
         li.appendChild(meta);
+        if (opts.expiry) {
+          var exp = document.createElement('input');
+          exp.type = 'date'; exp.className = 'f portal-staged-expiry';
+          exp.value = f._expiry || '';
+          exp.title = 'Policy expiry date (optional)';
+          exp.setAttribute('aria-label', 'Policy expiry date for ' + f.name);
+          exp.addEventListener('change', function () { f._expiry = this.value; });
+          li.appendChild(exp);
+        }
         var rm = el('button', 'portal-staged-remove', '×'); rm.type = 'button';
         rm.setAttribute('aria-label', 'Remove ' + f.name);
         rm.addEventListener('click', function () { staged.splice(i, 1); render(); });
@@ -514,8 +541,20 @@
     title: 'Upload a document',
     accept: '.pdf,.jpg,.jpeg,.png,image/*,.heic,.heif',
     multiple: true,
-    note: 'PDF, JPG or PNG · up to 5 MB each',
-    onCommit: function (files) { return uploadFiles(files, function (f) { return f.name; }); }
+    note: 'PDF, JPG or PNG · up to 5 MB each · set the policy expiry (optional)',
+    expiry: true, // let the client set each policy's expiry date
+    onCommit: function (files) {
+      // Uploads are Drive-bound (Google's file-create + share take several seconds
+      // each and Apps Script can't speed that up). So don't trap the user on a
+      // ~20s spinner — close the overlay now and finish in the background with a
+      // status toast for the result.
+      $('modalAddPolicy').hidden = true;
+      status('ok', 'Uploading your document' + (files.length > 1 ? 's' : '') + '… you can keep using the portal.');
+      uploadFiles(files, function (f) { return f.name; }, true)
+        .then(function (n) { status('ok', n + ' document' + (n > 1 ? 's' : '') + ' uploaded — sent to Kevin.'); })
+        .catch(function () { status('err', 'Upload failed — please try again.'); });
+      return Promise.resolve(files.length); // don't keep the (now-hidden) uploader busy
+    }
   });
   $('addPolicyMount').appendChild(addPolicyUploader.box);
   addPolicyUploader.box.hidden = false; // always shown inside its modal
@@ -855,7 +894,7 @@
 
   // Website enquiry Apps Script (emails Kevin) — same endpoint the site forms use.
   // Separate from the portal endpoint; no-cors POST, so the reply is opaque.
-  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzFBqQZCBJ7trrzwTFUq6aOwlXslRdXMyrcTE-QuPB_QYQIbimvnJ4ZCzgyNM9qBuQCXw/exec';
+  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwD5jcJdgk6hXAZAoy2Gz0h0IVaFkRMR2BBu3WkPH2dQ9CHxsVghtpu79TmmPqODpbY/exec';
   function postEnquiry(fields) {
     var data = new FormData();
     data.append('name', fields.name || 'Portal user');

@@ -344,7 +344,7 @@
   // Kevin (shared with the main site enquiry form). Motor sends two documents as
   // fileData/fileData2 and no age; the endpoint attaches both and treats age as
   // optional.
-  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzFBqQZCBJ7trrzwTFUq6aOwlXslRdXMyrcTE-QuPB_QYQIbimvnJ4ZCzgyNM9qBuQCXw/exec';
+  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwD5jcJdgk6hXAZAoy2Gz0h0IVaFkRMR2BBu3WkPH2dQ9CHxsVghtpu79TmmPqODpbY/exec';
 
   function readB64(file) {
     return new Promise(function (resolve, reject) {

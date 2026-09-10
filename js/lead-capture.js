@@ -10,7 +10,7 @@
 (function () {
   'use strict';
 
-  var LEAD_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzFBqQZCBJ7trrzwTFUq6aOwlXslRdXMyrcTE-QuPB_QYQIbimvnJ4ZCzgyNM9qBuQCXw/exec';
+  var LEAD_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwD5jcJdgk6hXAZAoy2Gz0h0IVaFkRMR2BBu3WkPH2dQ9CHxsVghtpu79TmmPqODpbY/exec';
   var KEY = 'partialLeadData';
 
   // Which lead form this page is (by filename). Non-form pages → tracker is off.

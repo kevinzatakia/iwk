@@ -103,7 +103,7 @@
   // Google Apps Script web-app URL that receives enquiries and emails them to
   // Kevin (with the policy document attached when porting). Paste the URL you
   // get after deploying apps-script-enquiry-endpoint.gs — it ends in /exec.
-  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzFBqQZCBJ7trrzwTFUq6aOwlXslRdXMyrcTE-QuPB_QYQIbimvnJ4ZCzgyNM9qBuQCXw/exec';
+  var ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwD5jcJdgk6hXAZAoy2Gz0h0IVaFkRMR2BBu3WkPH2dQ9CHxsVghtpu79TmmPqODpbY/exec';
 
   var submitBtn = document.getElementById('formSubmit');
   var statusEl = document.getElementById('formStatus');
