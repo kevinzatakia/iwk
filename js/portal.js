@@ -8,7 +8,7 @@
   // ============================================================
   // Paste the /exec URL of the deployed portal Apps Script (see
   // apps-script-portal-endpoint.gs) here:
-  var PORTAL_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwDJDjcEmMT1dIwZT_iS_zyUjy19MrERCkLhZXOUczNyRIYo61uQh7UeK-8ShcVf1a8/exec';
+  var PORTAL_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyZYIJe1a4bRcchaqDogXH5TdJwGi4eevkFnateEWEyiBIr_bktQfYjL4zzKcjS4K2s/exec';
   // The one email address that unlocks the admin dashboard:
   var ADMIN_EMAIL = 'admin@insureitwithkevin.in';
 
@@ -486,7 +486,6 @@
 
   // Family view is now the default for every client (the hub lives on the Home tab).
   function familyModeOn() { return true; }
-  function setFamilyMode() { familyFilter = 'all'; renderFamilyHub(); }
 
   // ---- formatting ----
   function inr(n) { return '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN'); }
@@ -508,22 +507,39 @@
   function isClaimDone(status) { return /complete|approv|settl|paid|closed|done/i.test(status || ''); }
 
   function loadFamily() {
-    family = { isFamilyPoc: false, profiles: [], policies: [], claims: [] };
+    family = { isFamilyPoc: false, role: 'POC', pocEmail: getEmail(), myProfileId: '', accountSumInsured: 0, profiles: [], policies: [], claims: [] };
     gasGet({ action: 'getFamily', email: getEmail() })
       .then(function (data) {
         if (data && data.status === 'success') {
           family = {
             isFamilyPoc: !!data.isFamilyPoc,
+            role: data.role === 'MEMBER' ? 'MEMBER' : 'POC',
+            pocEmail: data.pocEmail || getEmail(),
+            myProfileId: data.myProfileId || '',
+            accountSumInsured: Number(data.accountSumInsured) || 0,
             profiles: data.profiles || [],
             policies: data.policies || [],
             claims: data.claims || []
           };
         }
+        applyRoleGuardrails();
         renderFamilyChrome();
         if (familyModeOn()) { renderFamilyHub(); }
-        renderDashboardPanels();
+        // A dependent MEMBER sees the family roster too, but read-only — reload it
+        // under the POC's email now that getFamily has told us who the POC is.
+        if (family.role === 'MEMBER') { loadFamilyProfiles(); }
       })
-      .catch(function () { renderFamilyChrome(); renderDashboardPanels(); }); // silent: family mode is a bonus, not core
+      .catch(function () { renderFamilyChrome(); }); // silent: family mode is a bonus, not core
+  }
+
+  // POC vs MEMBER guardrails (PRD): a dependent member's view is read-only — they
+  // cannot add family members or edit account/contact details. Applied whenever the
+  // family role is (re)resolved.
+  function isMember() { return family.role === 'MEMBER'; }
+  function applyRoleGuardrails() {
+    var member = isMember();
+    var addBtn = $('addFamilyProfileBtn'); if (addBtn) { addBtn.hidden = member; }
+    var editBtn = $('profileEditBtn'); if (editBtn) { editBtn.hidden = member; }
   }
 
   // Show/hide the banner, toggle and hub based on the saved preference. Family
@@ -533,10 +549,6 @@
   // their own tabs (no toggle/banner to manage).
   function renderFamilyChrome() { }
 
-  function filteredPolicies() {
-    return familyFilter === 'all' ? family.policies
-      : family.policies.filter(function (p) { return p.profileId === familyFilter; });
-  }
   function filteredClaims() {
     return familyFilter === 'all' ? family.claims
       : family.claims.filter(function (c) { return c.profileId === familyFilter; });
@@ -544,45 +556,33 @@
 
   function renderFamilyHub() {
     // Total Family Aggregate Sum Insured = the POC's manually-set SI + every
-    // dependent Profile's SI (person-level figures the admin maintains — no longer
-    // derived from individual policy rows).
-    var acctSI = Number(profile.sumInsured) || 0; // POC's own SI, from Users (getProfile)
+    // dependent Profile's SI. accountSumInsured is the POC's figure resolved
+    // server-side, so the family total reads identically for the POC and for every
+    // dependent member (bi-directional visibility).
+    var acctSI = Number(family.accountSumInsured) || 0;
     var profSI = family.profiles.reduce(function (s, p) { return s + (Number(p.sumInsured) || 0); }, 0);
     var totalCover = acctSI + profSI;
     $('familyTotalCover').textContent = totalCover ? inr(totalCover) : '—';
-    if (familyFilter === 'all') {
-      // Breakdown: the POC's own cover shown next to the aggregate.
-      $('familyCoverSub').textContent = 'Your cover ' + (acctSI ? inr(acctSI) : '—') +
-        ' · ' + family.profiles.length + ' member' + (family.profiles.length === 1 ? '' : 's');
-    } else {
-      var mp = family.profiles.filter(function (p) { return p.profileId === familyFilter; })[0];
-      var msi = mp ? (Number(mp.sumInsured) || 0) : 0;
-      $('familyCoverSub').textContent = (mp ? (mp.name || 'Member') : 'Member') +
-        ': ' + (msi ? inr(msi) + ' cover' : 'no cover set');
+
+    // Breakdown sub-line: a POC sees their own account cover; a dependent member
+    // sees their individual cover (their profile's SI).
+    var myCover = acctSI;
+    if (isMember()) {
+      var meP = family.profiles.filter(function (p) { return String(p.profileId) === String(family.myProfileId); })[0];
+      myCover = meP ? (Number(meP.sumInsured) || 0) : 0;
     }
+    $('familyCoverSub').textContent = 'Your cover ' + (myCover ? inr(myCover) : '—') +
+      ' · ' + family.profiles.length + ' member' + (family.profiles.length === 1 ? '' : 's');
+
+    // Active claims: the backend already scopes claims to the viewer (POC → the
+    // whole family; member → only their own), so this count is correct per role.
     var openClaims = family.claims.filter(function (c) { return !isClaimDone(c.status); }).length;
     $('familyActiveClaims').textContent = String(openClaims);
+    var claimsSub = $('familyClaimsSub');
+    if (claimsSub) { claimsSub.textContent = isMember() ? 'your claims' : 'across the family'; }
 
     renderTimeline();
     renderClaims();
-  }
-
-  function renderMemberTabs() {
-    var wrap = $('familyMemberTabs');
-    if (!wrap) { return; } // member filter removed from Home
-    wrap.innerHTML = '';
-    var tabs = [{ id: 'all', label: 'All family' }];
-    family.profiles.forEach(function (p) {
-      var self = /^(self|me|myself|primary)$/i.test(p.relationship || '');
-      tabs.push({ id: p.profileId, label: self ? 'Me' : (p.name || p.relationship || 'Member') });
-    });
-    tabs.forEach(function (t) {
-      var b = el('button', 'portal-memtab' + (familyFilter === t.id ? ' is-active' : ''), t.label);
-      b.type = 'button';
-      b.setAttribute('role', 'tab');
-      b.addEventListener('click', function () { familyFilter = t.id; renderFamilyHub(); });
-      wrap.appendChild(b);
-    });
   }
 
   // Upcoming renewals are derived from policy DOCUMENT expiry dates — the POC's own
@@ -611,50 +611,6 @@
     });
   }
 
-  function renderPoliciesLedger() {
-    var ul = $('familyPolicies');
-    if (!ul) { return; } // Policies & premiums removed from Home
-    ul.innerHTML = '';
-    var pols = filteredPolicies();
-    if (!pols.length) { ul.appendChild(el('li', 'portal-empty', 'No policies to show.')); return; }
-    pols.forEach(function (p) {
-      var li = el('li', 'portal-ledger-item');
-      var main = el('div', 'portal-ledger-main');
-      main.appendChild(el('span', 'portal-ledger-title', (p.policyType || 'Policy') + (p.insurer ? ' · ' + p.insurer : '')));
-      var metaBits = [profileName(p.profileId)];
-      if (p.sumInsured) { metaBits.push('Cover ' + inr(p.sumInsured)); }
-      if (p.renewalDate) { metaBits.push('Renews ' + fmtDate(p.renewalDate)); }
-      main.appendChild(el('span', 'portal-ledger-meta', metaBits.join(' · ')));
-      li.appendChild(main);
-
-      var right = el('div', 'portal-ledger-right');
-      if (p.premiumAmount) { right.appendChild(el('span', 'portal-ledger-amt', inr(p.premiumAmount))); }
-      var share = el('button', 'portal-share-btn', 'Share');
-      share.type = 'button';
-      share.setAttribute('aria-label', 'Share premium details');
-      share.addEventListener('click', function () { sharePremium(p); });
-      right.appendChild(share);
-      li.appendChild(right);
-      ul.appendChild(li);
-    });
-  }
-
-  // Build the pre-formatted WhatsApp message and open the share sheet.
-  function sharePremium(p) {
-    var name = profileName(p.profileId);
-    var type = p.policyType || p.insurer || 'insurance';
-    var amt = p.premiumAmount ? inr(p.premiumAmount) : 'the premium';
-    var date = p.renewalDate ? fmtDate(p.renewalDate) : 'soon';
-    var msg = 'Hi ' + name + ', your ' + type + ' renewal of ' + amt + ' is due on ' + date +
-      '. Let me know once you’ve transferred it to me so I can pay Kevin.';
-    if (navigator.share) {
-      navigator.share({ text: msg }).catch(function () { openWhatsApp(msg); });
-    } else {
-      openWhatsApp(msg);
-    }
-  }
-  function openWhatsApp(msg) { window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank', 'noopener'); }
-
   function renderClaims() {
     var ul = $('familyClaims');
     ul.innerHTML = '';
@@ -665,7 +621,16 @@
       var main = el('div', 'portal-claim-main');
       main.appendChild(el('span', 'portal-claim-title', profileName(c.profileId) + ' · ' + (c.policyType || 'Policy')));
       if (c.actionRequired) { main.appendChild(el('span', 'portal-claim-action', c.actionRequired)); }
-      if (c.lastUpdated) { main.appendChild(el('span', 'portal-claim-meta', 'Updated ' + fmtDate(c.lastUpdated))); }
+      // Self-service intimations carry the richer detail the POC feed shows.
+      if (c.intimated) {
+        var bits = [];
+        if (c.patientName) { bits.push('Patient: ' + c.patientName); }
+        if (c.submittedByName) { bits.push('By ' + c.submittedByName); }
+        if (c.policyNo) { bits.push('Policy ' + c.policyNo); }
+        if (c.hospitalName) { bits.push(c.hospitalName + (c.admission ? ' · ' + fmtDate(c.admission) : '')); }
+        if (bits.length) { main.appendChild(el('span', 'portal-claim-meta', bits.join(' · '))); }
+      }
+      if (c.lastUpdated) { main.appendChild(el('span', 'portal-claim-meta', (c.intimated ? 'Submitted ' : 'Updated ') + fmtDate(c.lastUpdated))); }
       li.appendChild(main);
       var done = isClaimDone(c.status);
       li.appendChild(el('span', 'portal-claim-status' + (done ? ' is-done' : ''), c.status || 'In progress'));
@@ -781,10 +746,31 @@
     var products = 'CLAIM INTIMATION — Policy No: ' + f.policyNo + ' | Insured: ' + f.insured
       + ' | Patient: ' + f.patient + ' | Hospital: ' + f.hospital + ', ' + f.hospitalAddr
       + ' | Admitted: ' + f.admission + ' | Illness: ' + f.illness + ' | Contact: ' + f.contact;
-    postEnquiry({ name: f.insured, email: profile.email || getEmail(), mobile: f.contact, products: products })
-      .then(function () { status('ok', 'Claim intimated — Kevin has been notified.'); $('modalClaim').hidden = true; $('claimForm').reset(); })
-      .catch(function () { fieldErr(err, 'Could not send. Please check your connection and try again.'); })
-      .then(function () { btn.disabled = false; btn.textContent = 'Submit claim'; });
+    // Two Google-Scripts calls (no EmailJS): persist the claim on the portal backend
+    // — under the POC's account, tagged with this submitter, status "Intimated" so it
+    // lands on the POC's Claims feed + Active Claims counter — AND email Kevin via the
+    // enquiry Apps Script. Best-effort: succeed if either channel reaches Kevin.
+    var persist = gasGet({
+      action: 'submitClaim', email: getEmail(),
+      policyNo: f.policyNo, insured: f.insured, patient: f.patient, hospital: f.hospital,
+      hospitalAddr: f.hospitalAddr, admission: f.admission, illness: f.illness, contact: f.contact
+    }).then(function (r) { return (r && r.status === 'success') ? r : null; }, function () { return null; });
+    var mail = postEnquiry({ name: f.insured, email: profile.email || getEmail(), mobile: f.contact, products: products })
+      .then(function () { return true; }, function () { return false; });
+    Promise.all([persist, mail]).then(function (res) {
+      var saved = res[0], mailed = res[1];
+      if (!saved && !mailed) { fieldErr(err, 'Could not send. Please check your connection and try again.'); return; }
+      status('ok', 'Claim intimated — Kevin has been notified.');
+      $('modalClaim').hidden = true; $('claimForm').reset();
+      if (saved) {
+        // Immediate +1 on the Active Claims counter, then reload the family so the
+        // count reconciles to the authoritative server figure (POC sees all family
+        // claims; the submitting member sees their own).
+        var cur = parseInt($('familyActiveClaims').textContent, 10); if (isNaN(cur)) { cur = 0; }
+        $('familyActiveClaims').textContent = String(cur + 1);
+        loadFamily();
+      }
+    }).then(function () { btn.disabled = false; btn.textContent = 'Submit claim'; });
   });
 
   // ---- Custom quote request (Add Policy tab) ----
@@ -843,10 +829,6 @@
 
   function closeAllPanels() { activeDashboardPanel = null; }
 
-  // The Expired archive lives on the Documents tab; the Claims tracker (with its
-  // pending-docs uploads) is rendered by renderClaims() on the Claims tab.
-  function renderDashboardPanels() { renderExpiredPanel(); }
-
   function isPendingDocs(status) { return /pending/i.test(status || ''); }
 
   // Claim documents use the same staged uploader (browse → preview → verify).
@@ -866,40 +848,6 @@
     wrap.appendChild(btn);
     wrap.appendChild(uploader.box);
     return wrap;
-  }
-
-  function renderExpiredPanel() {
-    var ul = $('expiredPanelList');
-    if (!ul) { return; } // Expired archive folded into the "Your Policies" Active/Expired filter.
-    ul.innerHTML = '';
-    var todayMs = new Date().setHours(0, 0, 0, 0);
-    var expired = (family.policies || []).filter(function (p) {
-      var d = toDate(p.renewalDate); return d && d.setHours(0, 0, 0, 0) < todayMs;
-    });
-    if (!expired.length) { ul.appendChild(el('li', 'portal-empty', 'No expired policies — you\'re all up to date.')); return; }
-    expired.forEach(function (p) {
-      var li = el('li', 'portal-expired-item');
-      var main = el('div', 'portal-ledger-main');
-      main.appendChild(el('span', 'portal-ledger-title', (p.policyType || 'Policy') + (p.insurer ? ' · ' + p.insurer : '')));
-      var bits = [profileName(p.profileId)];
-      if (p.premiumAmount) { bits.push('Premium ' + inr(p.premiumAmount)); }
-      bits.push('Expired ' + fmtDate(p.renewalDate));
-      main.appendChild(el('span', 'portal-ledger-meta', bits.join(' · ')));
-      li.appendChild(main);
-      var cta = el('a', 'portal-revive-btn', 'Message Kevin to Revive');
-      cta.href = reviveWhatsAppUrl(p); cta.target = '_blank'; cta.rel = 'noopener';
-      li.appendChild(cta);
-      ul.appendChild(li);
-    });
-  }
-
-  function reviveWhatsAppUrl(p) {
-    var name = profileName(p.profileId);
-    var type = p.policyType || p.insurer || 'policy';
-    var when = p.renewalDate ? fmtDate(p.renewalDate) : '';
-    var msg = 'Hi Kevin, I’d like to revive the ' + type + ' policy for ' + name +
-      (when ? ' that expired on ' + when : '') + '. Please help me renew it.';
-    return 'https://wa.me/918369988285?text=' + encodeURIComponent(msg);
   }
 
   // A notification jump now switches to the relevant tab (claims → Claims,
@@ -1252,7 +1200,9 @@
   function loadFamilyProfiles() {
     var wrap = $('familyProfilesList');
     wrap.innerHTML = ''; wrap.appendChild(el('div', 'portal-empty', 'Loading…'));
-    gasGet({ action: 'getSubProfiles', email: getEmail(), parentEmail: getEmail() })
+    // A dependent member views the POC's roster (read-only); a POC views their own.
+    var parent = (family && family.pocEmail) || getEmail();
+    gasGet({ action: 'getSubProfiles', email: getEmail(), parentEmail: parent })
       .then(function (data) { renderFamilyProfiles((data && data.status === 'success' && data.profiles) || []); })
       .catch(function () { wrap.innerHTML = ''; wrap.appendChild(el('div', 'portal-empty', 'Could not load.')); });
   }
@@ -1275,15 +1225,19 @@
       head.appendChild(info);
       var actions = el('div', 'portal-famcard-actions');
       var docsBtn = el('button', 'portal-famcard-btn', 'Documents'); docsBtn.type = 'button';
-      var editBtn = el('button', 'portal-famcard-btn', 'Edit'); editBtn.type = 'button';
-      actions.appendChild(docsBtn); actions.appendChild(editBtn);
+      actions.appendChild(docsBtn);
+      // Editing a family member is POC-only; a dependent member's view is read-only.
+      if (!isMember()) {
+        var editBtn = el('button', 'portal-famcard-btn', 'Edit'); editBtn.type = 'button';
+        actions.appendChild(editBtn);
+        editBtn.addEventListener('click', function () {
+          openSubProfileModal({ mode: 'edit', parentEmail: getEmail(), parentName: getName(), isAdmin: false, profile: p });
+        });
+      }
       head.appendChild(actions);
       card.appendChild(head);
       var docsWrap = el('ul', 'portal-doclist portal-famcard-docs'); docsWrap.hidden = true;
       card.appendChild(docsWrap);
-      editBtn.addEventListener('click', function () {
-        openSubProfileModal({ mode: 'edit', parentEmail: getEmail(), parentName: getName(), isAdmin: false, profile: p });
-      });
       docsBtn.addEventListener('click', function () {
         if (!docsWrap.hidden) { docsWrap.hidden = true; return; }
         docsWrap.innerHTML = ''; docsWrap.appendChild(el('li', 'portal-empty', 'Loading…')); docsWrap.hidden = false;

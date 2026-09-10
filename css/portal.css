@@ -45,6 +45,10 @@ body.portal { min-height: 100vh; }
 /* The explicit display above would otherwise override the [hidden] attribute, so
    the menu (admin-only) needs this to actually hide on the client/auth views. */
 .portal-hamburger[hidden] { display: none; }
+/* Same reason: .btn sets display:inline-flex, so buttons hidden via the [hidden]
+   attribute (e.g. role-gated Add-member / Edit-details for dependent members)
+   need this to actually disappear. */
+.btn[hidden] { display: none; }
 .portal-hamburger:hover { background: var(--green-tint); border-color: rgba(23, 105, 74, .28); }
 .portal-hamburger span { display: block; height: 2.5px; border-radius: 2px; background: var(--ink); transition: background .15s; }
 .portal-hamburger:hover span { background: var(--green-deep); }
