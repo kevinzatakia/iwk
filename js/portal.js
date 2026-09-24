@@ -220,6 +220,7 @@
     var metaBits = [];
     if (doc.timestamp) { metaBits.push(new Date(doc.timestamp).toLocaleDateString()); }
     if (doc.expiryDate) { metaBits.push((isDocExpired(doc) ? 'Expired ' : 'Expires ') + fmtDate(doc.expiryDate)); }
+    if (doc.sumInsured) { metaBits.push('SI ' + inr(doc.sumInsured)); }
     if (metaBits.length) { main.appendChild(el('span', 'portal-doc-meta', metaBits.join(' · '))); }
     if (doc.linkedViaFamily) { main.appendChild(el('span', 'portal-doc-tag', 'Linked via Family Account')); }
     li.appendChild(main);
@@ -1264,21 +1265,9 @@
         .catch(function (e2) { fail((e2 && e2.message) || 'A document failed to upload.'); });
     }
 
-    // On create, read the sheet first to catch an individual already added under
-    // this account (dedupe by email). The backend enforces it too, but this shows
-    // the message reliably even when a file makes the write opaque.
-    if (subCtx.mode === 'create') {
-      gasGet({ action: 'getSubProfiles', email: getEmail(), parentEmail: subCtx.parentEmail })
-        .then(function (data) {
-          var existing = (data && data.status === 'success' && data.profiles) || [];
-          var dup = existing.some(function (x) { return (x.profileEmail || '').toLowerCase() === email.toLowerCase(); });
-          if (dup) { return fail('A profile with this email already exists for this account.'); }
-          proceed();
-        })
-        .catch(function () { proceed(); }); // if the check can't run, let the backend guard it
-    } else {
-      proceed();
-    }
+    // Profiles may share an email (no dedupe) — only account registration checks for
+    // a duplicate email. Go straight to save.
+    proceed();
   });
 
   $('spDeleteBtn').addEventListener('click', function () {
@@ -1709,7 +1698,7 @@
   $('viewingClose').addEventListener('click', closeViewing);
 
   // ---- Admin "Send a Policy": multi-file, drag-drop, per-file expiry ----
-  var adminStaged = []; // [{ file, expiry }]
+  var adminStaged = []; // [{ file, expiry, si }]
 
   function renderAdminStaged() {
     var ul = $('adminStaged'); ul.innerHTML = '';
@@ -1724,6 +1713,12 @@
       exp.setAttribute('aria-label', 'Expiry date for ' + item.file.name);
       exp.addEventListener('change', function () { item.expiry = this.value; });
       li.appendChild(exp);
+      var si = document.createElement('input');
+      si.type = 'text'; si.inputMode = 'numeric'; si.className = 'f portal-staged-si';
+      si.placeholder = 'Sum Insured ₹'; si.value = item.si || '';
+      si.setAttribute('aria-label', 'Sum Insured for ' + item.file.name);
+      si.addEventListener('input', function () { item.si = this.value.replace(/[^\d]/g, ''); this.value = item.si; });
+      li.appendChild(si);
       var rm = el('button', 'portal-staged-remove', '×'); rm.type = 'button';
       rm.setAttribute('aria-label', 'Remove ' + item.file.name);
       rm.addEventListener('click', function () { adminStaged.splice(i, 1); renderAdminStaged(); });
@@ -1735,7 +1730,7 @@
     // Internal admin tool → no size / type / quantity limit enforced.
     Array.prototype.slice.call(fileList || []).forEach(function (f) {
       if (!adminStaged.some(function (s) { return s.file.name === f.name && s.file.size === f.size; })) {
-        adminStaged.push({ file: f, expiry: '' });
+        adminStaged.push({ file: f, expiry: '', si: '' });
       }
     });
     renderAdminStaged();
@@ -1772,7 +1767,7 @@
       var item = adminStaged[i++];
       readB64(item.file).then(function (b64) {
         return gasUpload({ action: 'adminUpload', email: getEmail(), targetEmail: target, profileId: profileId,
-          expiryDate: item.expiry, fileName: item.file.name, mimeType: item.file.type || 'application/octet-stream', fileData: b64 });
+          expiryDate: item.expiry, sumInsured: item.si || '', fileName: item.file.name, mimeType: item.file.type || 'application/octet-stream', fileData: b64 });
       }).then(next).catch(function (e2) {
         fieldErr(err, (e2 && e2.message) || 'Could not send.'); btn.disabled = false; btn.textContent = 'Send to client';
       });
