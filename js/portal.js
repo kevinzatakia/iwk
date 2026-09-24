@@ -1264,8 +1264,10 @@
     $('spSumInsured').value = (isEdit && p.sumInsured) ? String(p.sumInsured) : '';
     renderSpStaged(); $('spError').hidden = true;
     $('spSubmitBtn').disabled = false; $('spSubmitBtn').textContent = 'Submit';
-    // Delete only appears when editing an existing profile AND the requester is admin.
-    $('spDeleteBtn').hidden = !(isEdit && ctx.isAdmin);
+    // Delete appears when editing an existing profile — for the account holder
+    // managing their own family, and for the admin. (Dependent members never reach
+    // this modal — their family view is read-only, no Edit button.)
+    $('spDeleteBtn').hidden = !isEdit;
     $('modalSubProfile').hidden = false;
     $('spName').focus();
   }
