@@ -720,3 +720,10 @@ body.portal { min-height: 100vh; }
 #addPolicyMount .portal-uploader { margin-top: 4px; border: none; background: none; padding: 0; }
 #addPolicyMount .portal-uploader-close { display: none; }
 #addPolicyMount .portal-uploader-title { display: none; }
+
+/* Flash a document row the admin reached via a "new upload" notification click. */
+@keyframes portalDocFlash {
+  0%   { background: var(--green-tint); box-shadow: 0 0 0 2px var(--green) inset; }
+  100% { background: transparent; box-shadow: none; }
+}
+.portal-doc-highlight { animation: portalDocFlash 2.6s ease-out; border-radius: 10px; }

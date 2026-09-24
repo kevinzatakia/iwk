@@ -49,22 +49,44 @@
   //   • writes → no-cors POST: uploads carry a big base64 body that won't fit in a
   //     GET URL, so we POST them fire-and-forget (the reply is opaque/unreadable)
   //     and re-read the document list afterwards to confirm.
+  // Reads go over JSONP (Apps Script sends no CORS header, so fetch() can't read the
+  // reply). Apps Script goes COLD when idle and rate-limits under load, so three
+  // measures stop one slow/failed call from wedging the whole app:
+  //   • CONCURRENCY CAP + queue — never hold more than MAX_INFLIGHT JSONP <script>
+  //     connections at once, so the browser's ~6-per-host limit can't be saturated
+  //     by reads (extra calls wait in JS, not as stuck sockets). This is the core fix.
+  //   • FAST-FAIL on a non-JSONP reply — if the <script> fires `load` but our callback
+  //     never ran, Apps Script served an HTML error/throttle page (invalid JS → a
+  //     swallowed syntax error, and NO `onerror`); we fail at once and free the slot
+  //     instead of hanging the full timeout — that hang was what wedged the pool.
+  //   • one backoff RETRY, but ONLY for idempotent reads (retrying a write could
+  //     duplicate it).
   var jsonpSeq = 0;
+  var MAX_INFLIGHT = 3;        // headroom under the browser's ~6 connections/host
+  var JSONP_TIMEOUT = 25000;   // per attempt (generous for Apps Script cold starts;
+                               // the cap + fast-fail below are what prevent the wedge)
+  var JSONP_RETRIES = 1;
+  var jsonpInFlight = 0;
+  var jsonpQueue = [];
 
   function notConfigured() {
     return PORTAL_ENDPOINT.indexOf('PASTE_YOUR') === 0;
   }
 
-  // JSONP GET for read actions. `params` becomes the query string.
-  function gasGet(params) {
-    if (notConfigured()) {
-      return Promise.reject(new Error('The portal backend URL is not configured yet (PORTAL_ENDPOINT in js/portal.js).'));
-    }
+  // Only 'get*' reads and the bootstrap load are safe to auto-retry; everything else
+  // (register/login/create*/update*/delete*/submitClaim/mark*) has side effects.
+  function isRetryableRead(params) {
+    var a = (params && params.action) || '';
+    return a === 'bootstrap' || a.indexOf('get') === 0;
+  }
+
+  // A single JSONP attempt.
+  function jsonpOnce(params) {
     return new Promise(function (resolve, reject) {
       var cb = 'gasjsonp_' + (++jsonpSeq) + '_' + Date.now();
       var script = document.createElement('script');
-      var settled = false;
-      var timer = setTimeout(function () { finish(new Error('The request timed out. Please try again.')); }, 25000);
+      var settled = false, called = false;
+      var timer = setTimeout(function () { finish(new Error('The request timed out. Please try again.')); }, JSONP_TIMEOUT);
 
       function cleanup() {
         clearTimeout(timer);
@@ -78,8 +100,12 @@
         if (err) { reject(err); } else { resolve(data); }
       }
 
-      window[cb] = function (data) { finish(null, data); };
+      window[cb] = function (data) { called = true; finish(null, data); };
       script.onerror = function () { finish(new Error('Could not reach the server. Please try again.')); };
+      // Loaded, but the callback ran synchronously during that load — so if it didn't,
+      // the reply wasn't JSONP (an Apps Script error/throttle page). Fail now and free
+      // the connection slot rather than waiting out the timeout.
+      script.onload = function () { if (!called) { finish(new Error('The server is busy. Please try again.')); } };
 
       var qs = 'callback=' + encodeURIComponent(cb);
       Object.keys(params).forEach(function (k) {
@@ -87,6 +113,37 @@
       });
       script.src = PORTAL_ENDPOINT + '?' + qs;
       document.head.appendChild(script);
+    });
+  }
+
+  // One attempt + up to `triesLeft` backoff retries, reusing the same slot.
+  function jsonpWithRetry(params, triesLeft, delay) {
+    return jsonpOnce(params).catch(function (e) {
+      if (triesLeft <= 0) { throw e; }
+      return new Promise(function (r) { setTimeout(r, delay); })
+        .then(function () { return jsonpWithRetry(params, triesLeft - 1, delay * 2); });
+    });
+  }
+
+  // Starts queued reads while a connection slot is free, then pumps the next.
+  function pumpJsonpQueue() {
+    while (jsonpInFlight < MAX_INFLIGHT && jsonpQueue.length) {
+      var job = jsonpQueue.shift();
+      jsonpInFlight++;
+      jsonpWithRetry(job.params, job.retryable ? JSONP_RETRIES : 0, 800)
+        .then(job.resolve, job.reject)
+        .then(function () { jsonpInFlight--; pumpJsonpQueue(); });
+    }
+  }
+
+  // JSONP GET — concurrency-capped + (reads only) retried. `params` → query string.
+  function gasGet(params) {
+    if (notConfigured()) {
+      return Promise.reject(new Error('The portal backend URL is not configured yet (PORTAL_ENDPOINT in js/portal.js).'));
+    }
+    return new Promise(function (resolve, reject) {
+      jsonpQueue.push({ params: params, retryable: isRetryableRead(params), resolve: resolve, reject: reject });
+      pumpJsonpQueue();
     });
   }
 
@@ -123,8 +180,8 @@
     var onAdmin = view === 'admin-dashboard-view';
     $('navAbout').hidden = !onClient;
     $('navProfile').hidden = !onClient;
-    $('notifBell').hidden = !onClient;
-    if (!onClient) { $('notifCenter').hidden = true; }
+    $('notifBell').hidden = !(onClient || onAdmin); // admin gets notifications too
+    if (!(onClient || onAdmin)) { $('notifCenter').hidden = true; }
     $('navLogout').hidden = !(onClient || onAdmin);
     // The slide-in menu (hamburger) is admin-only now; clients log out from the
     // Profile tab and navigate via the bottom nav.
@@ -369,7 +426,7 @@
     files.forEach(function (f) {
       chain = chain.then(function () {
         return readB64(f).then(function (b64) {
-          return gasUpload({ action: 'clientUpload', email: getEmail(), fileName: nameFn(f), mimeType: f.type || 'application/octet-stream', fileData: b64, expiryDate: f._expiry || '' })
+          return gasUpload({ action: 'clientUpload', email: getEmail(), fileName: nameFn(f), mimeType: f.type || 'application/octet-stream', fileData: b64, expiryDate: f._expiry || '', notify: notify ? 1 : '' })
             .then(function () { ok++; uploaded.push(f.name + (f._expiry ? ' (expires ' + f._expiry + ')' : '')); });
         });
       });
@@ -999,7 +1056,11 @@
   function startNotifPolling() {
     if (notifTimer) { clearInterval(notifTimer); }
     notifTimer = setInterval(function () {
-      if (getEmail() && !isAdmin(getEmail())) { loadNotifications(); }
+      // Don't poll a hidden/backgrounded tab — a slow poll would leak a connection
+      // slot each cycle while nobody's looking. It resumes on the next visible tick.
+      if (document.hidden) { return; }
+      if (getEmail()) { loadNotifications(); } // both client and admin
+
     }, NOTIF_POLL_MS);
   }
   function stopNotifPolling() { if (notifTimer) { clearInterval(notifTimer); notifTimer = null; } }
@@ -1051,8 +1112,40 @@
   }
 
   function routeNotification(n) {
+    if (isAdmin(getEmail())) { routeAdminNotif(n); return; }
     if (n.relatedType === 'claim') { scrollToPanel('claims'); }
     else if (n.relatedType === 'renewal') { scrollToPanel('expired'); }
+  }
+
+  // Admin notification click → open the person's account and reveal the relevant
+  // thing. relatedId is "account|profileId|fileURL" (upload) or "account|profileId"
+  // (new profile). pendingDocHighlight flags the file for renderViewList to flash.
+  var pendingDocHighlight = '';
+  function routeAdminNotif(n) {
+    var parts = String(n.relatedId || '').split('|');
+    var acctEmail = (parts[0] || '').trim();
+    if (!acctEmail) { return; }
+    var u = (allUsers || []).filter(function (x) { return (x.email || '').toLowerCase() === acctEmail.toLowerCase(); })[0] || { email: acctEmail };
+    // Surface this account in the (paginated) client list.
+    var search = $('clientSearch');
+    if (search) { search.value = acctEmail; search.dispatchEvent(new Event('input', { bubbles: true })); }
+    if (n.relatedType === 'client_upload') {
+      pendingDocHighlight = (parts[2] || '').trim(); // fileURL — renderViewList flashes it
+      viewClient(u);
+      var vf = $('viewingFolder'); if (vf) { setTimeout(function () { vf.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120); }
+    } else if (n.relatedType === 'profile_created') {
+      viewClient(u);
+      // Open this account's family-profiles accordion so the new profile is visible.
+      setTimeout(function () {
+        var acc = document.querySelector('.portal-subaccordion[data-parent="' + acctEmail.toLowerCase() + '"]');
+        if (acc) {
+          acc.hidden = false;
+          var row = acc.closest('.portal-user-li'); if (row) { row.classList.add('is-expanded'); }
+          loadAdminSubProfiles(u, acc);
+          acc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 160);
+    }
   }
 
   function openNotifCenter() {
@@ -1476,6 +1569,7 @@
     list.innerHTML = ''; list.appendChild(el('li', 'portal-empty', 'Loading…'));
     $('usersPagerTop').hidden = true; $('usersPagerBottom').hidden = true;
     selectedUser = null; $('viewingFolder').hidden = true;
+    loadNotifications(); startNotifPolling(); // admin gets upload / new-profile alerts
 
     gasGet({ action: 'getAllUsers', email: getEmail() })
       .then(function (data) {
@@ -1648,6 +1742,12 @@
     if (!docs.length) { ul.appendChild(el('li', 'portal-empty', emptyMsg)); return; }
     docs.forEach(function (d) {
       var li = el('li');
+      // Flash the file the admin arrived at via a "new upload" notification click.
+      if (pendingDocHighlight && d.fileURL && d.fileURL === pendingDocHighlight) {
+        li.classList.add('portal-doc-highlight');
+        pendingDocHighlight = '';
+        setTimeout(function () { li.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 80);
+      }
       var main = el('div', 'portal-doc-main');
       var a = el('a', null, d.fileName || 'Document');
       a.href = d.fileURL || '#'; a.target = '_blank'; a.rel = 'noopener';
