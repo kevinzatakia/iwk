@@ -1065,6 +1065,14 @@
   }
   function stopNotifPolling() { if (notifTimer) { clearInterval(notifTimer); notifTimer = null; } }
 
+  // Refresh notifications the instant the tab returns to the foreground, so new
+  // alerts show immediately instead of waiting up to 90s for the next poll (the
+  // hidden-tab poll skip above otherwise leaves a returning user stale). Only while
+  // polling is active (logged in as client or admin).
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && notifTimer && getEmail()) { loadNotifications(); }
+  });
+
   function renderNotifBadge(unread) {
     var badge = $('notifBadge');
     if (unread > 0) { badge.hidden = false; badge.textContent = unread > 9 ? '9+' : String(unread); }
