@@ -184,6 +184,16 @@
           </div>
         </div>
 
+        <!-- Life Insurance entry — opens the Life Insurance dashboard/view -->
+        <button type="button" class="portal-life-entry" id="lifeEntryCard">
+          <span class="portal-life-entry-ico" aria-hidden="true">🛡️</span>
+          <span class="portal-life-entry-text">
+            <span class="portal-life-entry-title">Life Insurance</span>
+            <span class="portal-life-entry-sub">View your family's life policies &amp; export the insurance chart</span>
+          </span>
+          <span class="portal-life-entry-arrow" aria-hidden="true">›</span>
+        </button>
+
         <!-- Family Profiles — sub-profiles under this account (moved here from Profile) -->
         <div class="portal-folder portal-famprofiles" id="familyProfilesSection">
           <div class="portal-famprofiles-head">
@@ -434,6 +444,7 @@
               </div>
               <button type="button" class="portal-viewing-close" id="viewingClose" aria-label="Close">×</button>
             </div>
+            <button type="button" class="btn btn-ghost portal-block portal-life-open" id="adminLifeBtn">🛡️ Manage Life Insurance policies</button>
             <!-- Account-level Sum Insured (admin-set); hidden when viewing a sub-profile. -->
             <div class="portal-si-row" id="viewAccountSIRow" hidden>
               <label class="f-label" for="viewAccountSI">Account Sum Insured (POC)</label>
@@ -457,6 +468,114 @@
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW 6: LIFE INSURANCE ============ -->
+    <section id="life-view" class="pv" hidden>
+      <div class="portal-life-head">
+        <button type="button" class="portal-life-back" id="lifeBack" aria-label="Back">←</button>
+        <div class="portal-life-heading">
+          <h2>Life Insurance</h2>
+          <span class="portal-life-sub" id="lifeAccountLabel"></span>
+        </div>
+        <div class="portal-life-actions">
+          <button type="button" class="btn btn-ghost portal-life-export" id="lifeExportBtn">⤓ Export PDF</button>
+          <button type="button" class="btn btn-primary portal-life-add" id="lifeAddBtn" hidden>＋ Add Policy</button>
+        </div>
+      </div>
+
+      <!-- Dashboard: policy cards -->
+      <div id="lifeDashboard">
+        <div class="portal-life-cards" id="lifeCards">
+          <div class="portal-empty">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Admin Policy Entry form (toggled) -->
+      <div id="lifeFormPanel" hidden>
+        <div class="portal-life-formbar">
+          <h3 id="lifeFormTitle">Policy Entry</h3>
+          <div class="portal-life-formbar-actions">
+            <button type="button" class="btn btn-danger" id="lifeDeleteBtn" hidden>Delete</button>
+            <button type="button" class="btn btn-ghost" id="lifeFormBack">Cancel</button>
+            <button type="button" class="btn btn-primary" id="lifeSaveBtn">Save</button>
+          </div>
+        </div>
+        <div class="portal-err" id="lifeFormErr" hidden></div>
+        <form id="lifeForm" novalidate>
+          <!-- Policy Holder's Details -->
+          <fieldset class="portal-life-fs">
+            <legend>Policy Holder's Details</legend>
+            <div class="portal-life-grid">
+              <label class="f-lbl">Group Name<input class="f" id="liGroupName" autocomplete="off"></label>
+              <label class="f-lbl">Group Code<input class="f" id="liGroupCode" autocomplete="off"></label>
+              <label class="f-lbl">Life Assured<input class="f" id="liLifeAssured" list="liAssuredList" autocomplete="off"><datalist id="liAssuredList"></datalist></label>
+              <label class="f-lbl">Date of Birth<input class="f" id="liDob" type="date"></label>
+              <label class="f-lbl">Age (NBD)<input class="f" id="liAge" type="text" inputmode="numeric"></label>
+              <label class="f-lbl">Gender
+                <select class="f portal-select" id="liGender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select>
+              </label>
+              <label class="f-lbl portal-life-check"><input type="checkbox" id="liPan"> PAN Registered</label>
+            </div>
+          </fieldset>
+
+          <!-- Policy Details -->
+          <fieldset class="portal-life-fs">
+            <legend>Policy Details</legend>
+            <div class="portal-life-grid">
+              <label class="f-lbl">Insurer
+                <select class="f portal-select" id="liInsurer"><option>LIC</option><option>HDFC Life</option><option>Tata AIA</option><option>Max Life</option><option>SBI Life</option><option>Other</option></select>
+              </label>
+              <label class="f-lbl">Policy Number<input class="f" id="liPolicyNumber" autocomplete="off"></label>
+              <label class="f-lbl">Plan (name/number)<input class="f" id="liPlan" autocomplete="off"></label>
+              <label class="f-lbl">Commencement Date<input class="f" id="liCommDate" type="date"></label>
+              <label class="f-lbl">Term (years)<input class="f" id="liTerm" type="text" inputmode="numeric"></label>
+              <label class="f-lbl">Completion Date<input class="f" id="liCompDate" type="date" readonly></label>
+              <label class="f-lbl">PPT<input class="f" id="liPpt" type="text" inputmode="numeric"></label>
+              <label class="f-lbl">FUP Date<input class="f" id="liFup" type="date"></label>
+              <label class="f-lbl">Mode
+                <select class="f portal-select" id="liMode"><option>Yearly</option><option>Half-Yearly</option><option>Quarterly</option><option>Monthly</option><option>Single</option></select>
+              </label>
+              <label class="f-lbl">Extra Class
+                <select class="f portal-select" id="liExtraClass"><option>None</option><option>Class I</option><option>Class II</option><option>Class III</option></select>
+              </label>
+              <label class="f-lbl">Rate (%)<input class="f" id="liRate" type="text" inputmode="decimal"></label>
+            </div>
+          </fieldset>
+
+          <!-- Policy Premium Calculation -->
+          <fieldset class="portal-life-fs">
+            <legend>Policy Premium Calculation</legend>
+            <div class="portal-life-grid">
+              <label class="f-lbl">Sum Assured (₹)<input class="f" id="liSumAssured" type="text" inputmode="numeric"></label>
+              <label class="f-lbl">Basic Yearly Premium (₹)<input class="f" id="liBasicPrem" type="text" inputmode="numeric"></label>
+              <label class="f-lbl">Total Rider Premium (₹)<input class="f" id="liRiderPrem" type="text" inputmode="numeric" readonly></label>
+              <label class="f-lbl">Installment Premium (₹)<input class="f" id="liInstPrem" type="text" inputmode="numeric"></label>
+              <label class="f-lbl">GST (₹)<input class="f" id="liGst" type="text" inputmode="numeric"></label>
+              <label class="f-lbl">Total Installment Premium (₹)<input class="f" id="liTotalPrem" type="text" inputmode="numeric" readonly></label>
+            </div>
+          </fieldset>
+
+          <!-- Riders Details -->
+          <fieldset class="portal-life-fs">
+            <legend>Riders Details</legend>
+            <div class="portal-life-riders" id="liRiders"></div>
+            <button type="button" class="btn btn-ghost portal-life-addrider" id="liAddRider">＋ Add rider</button>
+          </fieldset>
+
+          <!-- Nominee Details -->
+          <fieldset class="portal-life-fs">
+            <legend>Nominee Details</legend>
+            <div class="portal-life-grid">
+              <label class="f-lbl">Nominee Type
+                <select class="f portal-select" id="liNomType"><option value="">—</option><option>Nominee</option><option>Appointee</option><option>Assignee</option></select>
+              </label>
+              <label class="f-lbl">Nominee Name<input class="f" id="liNomName" autocomplete="off"></label>
+              <label class="f-lbl">Relationship<input class="f" id="liNomRel" autocomplete="off"></label>
+            </div>
+          </fieldset>
+        </form>
       </div>
     </section>
   </main>
@@ -618,6 +737,10 @@
     </div>
   </div>
 
+  <!-- Self-hosted (CSP allows only 'self') — Life Insurance chart PDF export. Load
+       before portal.js so window.jspdf + the autoTable plugin are ready. -->
+  <script src="js/jspdf.umd.min.js" defer></script>
+  <script src="js/jspdf.plugin.autotable.min.js" defer></script>
   <script src="js/portal.js" defer></script>
   <script src="js/pwa.js" defer></script>
 </body>

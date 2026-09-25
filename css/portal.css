@@ -727,3 +727,69 @@ body.portal { min-height: 100vh; }
   100% { background: transparent; box-shadow: none; }
 }
 .portal-doc-highlight { animation: portalDocFlash 2.6s ease-out; border-radius: 10px; }
+
+/* ============ LIFE INSURANCE MODULE ============ */
+/* Home entry card */
+.portal-life-entry {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer;
+  background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 16px 18px; margin-bottom: 16px; transition: border-color .15s, transform .15s;
+}
+.portal-life-entry:hover { border-color: var(--green); transform: translateY(-2px); }
+.portal-life-entry-ico { font-size: 26px; flex: none; }
+.portal-life-entry-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.portal-life-entry-title { font-family: var(--serif); font-weight: 700; font-size: 17px; color: var(--green-deep); }
+.portal-life-entry-sub { font-size: 12.5px; color: var(--ink-mute); }
+.portal-life-entry-arrow { font-size: 24px; color: var(--ink-mute); flex: none; }
+
+/* View header */
+.portal-life-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.portal-life-back { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: #fff; cursor: pointer; font-size: 20px; color: var(--green-deep); }
+.portal-life-back:hover { border-color: var(--green); background: var(--green-tint); }
+.portal-life-heading { flex: 1; min-width: 0; }
+.portal-life-heading h2 { font-family: var(--serif); font-weight: 700; font-size: clamp(22px, 4vw, 30px); }
+.portal-life-sub { display: block; font-size: 13px; color: var(--ink-mute); margin-top: 2px; }
+.portal-life-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.portal-life-export, .portal-life-add { padding: 10px 16px; }
+.portal-life-open { margin-bottom: 14px; }
+
+/* Cards grid */
+.portal-life-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+@media (max-width: 760px) { .portal-life-cards { grid-template-columns: 1fr; } }
+.portal-life-card { position: relative; overflow: hidden; background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 16px 18px; }
+.portal-life-badge { position: absolute; top: 0; right: 0; background: #e8542a; color: #fff; font-size: 11px; font-weight: 800; padding: 3px 22px; transform: rotate(45deg) translate(18px, -4px); transform-origin: center; }
+.portal-life-card-top { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.portal-life-polno { font-weight: 800; font-size: 14px; background: var(--ivory); border-radius: 8px; padding: 4px 10px; color: #e8542a; }
+button.portal-life-polno { border: none; cursor: pointer; text-decoration: underline; }
+button.portal-life-polno:hover { background: var(--green-tint); }
+.portal-life-holder { font-weight: 700; font-size: 13.5px; color: var(--ink); }
+.portal-life-plan { display: block; color: var(--green); font-weight: 700; font-size: 15px; margin: 10px 0; text-decoration: none; }
+.portal-life-datagrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; font-size: 13px; }
+.portal-life-datagrid > div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+.portal-life-datagrid .k { color: var(--ink-mute); }
+.portal-life-datagrid .v { font-weight: 700; color: var(--ink); text-align: right; word-break: break-word; }
+.portal-life-datagrid .v.chip { background: var(--green-tint); color: var(--green-deep); border-radius: 6px; padding: 1px 8px; }
+.portal-life-nominee { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12.5px; color: var(--ink-soft); }
+
+/* Admin form */
+.portal-life-formbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.portal-life-formbar h3 { font-family: var(--serif); font-weight: 700; font-size: 20px; color: var(--green-deep); }
+.portal-life-formbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.portal-life-formbar-actions .btn { padding: 9px 18px; }
+.portal-life-fs { border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px 18px; margin-bottom: 16px; background: #fff; }
+.portal-life-fs > legend { font-family: var(--serif); font-weight: 700; font-size: 16px; color: var(--green-deep); padding: 0 8px; }
+.portal-life-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 14px; }
+@media (max-width: 720px) { .portal-life-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 460px) { .portal-life-grid { grid-template-columns: 1fr; } }
+.f-lbl { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+.f-lbl .f, .f-lbl .portal-select { font-weight: 500; }
+.portal-life-check { flex-direction: row; align-items: center; gap: 8px; align-self: end; padding-bottom: 10px; }
+.portal-life-check input { width: 18px; height: 18px; }
+/* Riders */
+.portal-life-riders { display: flex; flex-direction: column; gap: 10px; }
+.portal-life-rider { display: grid; grid-template-columns: auto 1.6fr 1fr 0.7fr 0.7fr 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--ivory); }
+@media (max-width: 720px) { .portal-life-rider { grid-template-columns: auto 1fr 1fr; } }
+.portal-life-rider input[type=checkbox] { width: 18px; height: 18px; }
+.portal-life-rider .f { padding: 7px 9px; font-size: 12.5px; }
+.portal-life-rider-rm { flex: none; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 16px; color: #b42318; background: #fbe9e7; border: 1px solid #f5c6bf; }
+.portal-life-addrider { margin-top: 12px; }

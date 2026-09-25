@@ -173,7 +173,7 @@
   // ============================================================
   // ROUTING
   // ============================================================
-  var VIEWS = ['home-view', 'register-view', 'login-view', 'client-dashboard-view', 'admin-dashboard-view'];
+  var VIEWS = ['home-view', 'register-view', 'login-view', 'client-dashboard-view', 'admin-dashboard-view', 'life-view'];
 
   function setNav(view) {
     var onClient = view === 'client-dashboard-view';
@@ -1940,6 +1940,347 @@
   ['regPhone', 'profilePhone'].forEach(function (id) {
     $(id).addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 10); });
   });
+
+  // ============================================================
+  // LIFE INSURANCE MODULE
+  //   A store kept separate from documents/SI. Admin does CRUD; clients read-only
+  //   (+ PDF export, Phase 2). #life-view holds a card dashboard (#lifeDashboard)
+  //   and the admin entry form (#lifeFormPanel), toggled in place. lifeCtx tracks
+  //   whose policies are shown and whether the viewer may edit.
+  // ============================================================
+  var lifeCtx = { account: '', canEdit: false, returnView: 'client-dashboard-view' };
+  var lifePolicies = [];
+  var lifeEditing = null; // policy object being edited, or null for a new one
+
+  function liNum(v) { return Math.round(Number(String(v == null ? '' : v).replace(/[^0-9.]/g, '')) || 0); }
+
+  function openLifeView(account, canEdit, returnView) {
+    lifeCtx = { account: String(account || getEmail() || '').toLowerCase(), canEdit: !!canEdit, returnView: returnView || 'client-dashboard-view' };
+    showLifeDashboard();
+    $('lifeAddBtn').hidden = !canEdit;
+    $('lifeAccountLabel').textContent = canEdit ? ('Client: ' + account) : '';
+    showView('life-view');
+    loadLifePolicies();
+  }
+  function showLifeDashboard() { $('lifeDashboard').hidden = false; $('lifeFormPanel').hidden = true; }
+
+  function loadLifePolicies() {
+    var wrap = $('lifeCards'); wrap.innerHTML = ''; wrap.appendChild(el('div', 'portal-empty', 'Loading…'));
+    gasGet({ action: 'getLifePolicies', email: getEmail(), account: lifeCtx.account })
+      .then(function (data) {
+        lifePolicies = (data && data.status === 'success' && data.policies) || [];
+        renderLifeCards();
+      })
+      .catch(function () { wrap.innerHTML = ''; wrap.appendChild(el('div', 'portal-empty', 'Could not load life policies.')); });
+  }
+
+  function lifeRow(k, v, chip) {
+    var d = el('div');
+    d.appendChild(el('span', 'k', k));
+    d.appendChild(el('span', 'v' + (chip ? ' chip' : ''), (v == null || v === '') ? '—' : String(v)));
+    return d;
+  }
+
+  function renderLifeCards() {
+    var wrap = $('lifeCards'); wrap.innerHTML = '';
+    if (!lifePolicies.length) {
+      wrap.appendChild(el('div', 'portal-empty', lifeCtx.canEdit ? 'No life policies yet — add one with “＋ Add Policy”.' : 'No life policies on record.'));
+      return;
+    }
+    lifePolicies.forEach(function (p) {
+      var card = el('article', 'portal-life-card');
+      card.appendChild(el('span', 'portal-life-badge', p.insurer || 'LIC'));
+      var top = el('div', 'portal-life-card-top');
+      if (lifeCtx.canEdit) {
+        var b = el('button', 'portal-life-polno', p.policyNumber || '—'); b.type = 'button';
+        b.addEventListener('click', function () { openLifeForm(p); });
+        top.appendChild(b);
+      } else {
+        top.appendChild(el('span', 'portal-life-polno', p.policyNumber || '—'));
+      }
+      top.appendChild(el('span', 'portal-life-holder', p.groupName || p.lifeAssured || ''));
+      card.appendChild(top);
+      card.appendChild(el('div', 'portal-life-plan', p.plan || 'Policy'));
+      var grid = el('div', 'portal-life-datagrid');
+      grid.appendChild(lifeRow('Mode', p.mode));
+      grid.appendChild(lifeRow('Fup Date', p.fupDate ? fmtDate(p.fupDate) : ''));
+      grid.appendChild(lifeRow('Term', p.term));
+      grid.appendChild(lifeRow('PPT', p.ppt));
+      grid.appendChild(lifeRow('Sum Assured', p.sumAssured ? inr(p.sumAssured) : ''));
+      grid.appendChild(lifeRow('Insurer', p.insurer || 'LIC'));
+      grid.appendChild(lifeRow('Gr. Code', p.groupCode));
+      grid.appendChild(lifeRow('Comm. Date', p.commencementDate ? fmtDate(p.commencementDate) : ''));
+      grid.appendChild(lifeRow('GST', (p.gst != null && p.gst !== '') ? inr(p.gst) : '₹0', true));
+      grid.appendChild(lifeRow('Premium', p.totalInstallmentPremium ? inr(p.totalInstallmentPremium) : (p.installmentPremium ? inr(p.installmentPremium) : ''), true));
+      card.appendChild(grid);
+      if (p.nomineeName) {
+        card.appendChild(el('div', 'portal-life-nominee', 'Nominee: ' + p.nomineeName + (p.nomineeRelationship ? ' (' + p.nomineeRelationship + ')' : '')));
+      }
+      wrap.appendChild(card);
+    });
+  }
+
+  function openLifeForm(p) {
+    lifeEditing = p || null;
+    var isEdit = !!p;
+    $('lifeFormTitle').textContent = isEdit ? 'Edit Policy' : 'New Policy';
+    $('lifeDeleteBtn').hidden = !isEdit;
+    $('lifeSaveBtn').textContent = isEdit ? 'Update' : 'Save';
+    $('lifeFormErr').hidden = true;
+
+    // Life-Assured suggestions: existing names on this account + (own account) family.
+    var names = {};
+    lifePolicies.forEach(function (x) { if (x.lifeAssured) { names[x.lifeAssured] = 1; } });
+    if (lifeCtx.account === String(family.pocEmail || '').toLowerCase()) {
+      if (family.pocName) { names[family.pocName] = 1; }
+      (family.profiles || []).forEach(function (m) { if (m.name) { names[m.name] = 1; } });
+    }
+    var dl = $('liAssuredList'); dl.innerHTML = '';
+    Object.keys(names).forEach(function (n) { var o = document.createElement('option'); o.value = n; dl.appendChild(o); });
+
+    var g = function (id, v) { $(id).value = (v == null) ? '' : v; };
+    g('liGroupName', p && p.groupName); g('liGroupCode', p && p.groupCode); g('liLifeAssured', p && p.lifeAssured);
+    g('liDob', p && p.dob); g('liAge', p && p.ageNbd); $('liGender').value = (p && p.gender) || '';
+    $('liPan').checked = !!(p && p.panRegistered); $('liInsurer').value = (p && p.insurer) || 'LIC';
+    g('liPolicyNumber', p && p.policyNumber); g('liPlan', p && p.plan);
+    g('liCommDate', p && p.commencementDate); g('liTerm', p && p.term); g('liCompDate', p && p.completionDate);
+    g('liPpt', p && p.ppt); g('liFup', p && p.fupDate);
+    $('liMode').value = (p && p.mode) || 'Yearly'; $('liExtraClass').value = (p && p.extraClass) || 'None';
+    g('liRate', p && p.rate);
+    g('liSumAssured', p && p.sumAssured); g('liBasicPrem', p && p.basicYearlyPremium);
+    g('liInstPrem', p && p.installmentPremium); g('liGst', p && p.gst);
+    $('liNomType').value = (p && p.nomineeType) || ''; g('liNomName', p && p.nomineeName); g('liNomRel', p && p.nomineeRelationship);
+    renderRiders((p && p.riders) || []);
+    recalcLife();
+    $('lifeDashboard').hidden = true; $('lifeFormPanel').hidden = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderRiders(riders) {
+    var wrap = $('liRiders'); wrap.innerHTML = '';
+    riders.forEach(function (r) { wrap.appendChild(riderRow(r)); });
+  }
+  function riderRow(r) {
+    r = r || {};
+    var row = el('div', 'portal-life-rider');
+    var chk = document.createElement('input'); chk.type = 'checkbox'; chk.className = 'li-rd-active'; chk.checked = r.active !== false;
+    chk.addEventListener('change', recalcLife); row.appendChild(chk);
+    function inp(cls, val, ph, calc) {
+      var i = document.createElement('input'); i.className = 'f ' + cls; i.value = (val == null) ? '' : val; if (ph) { i.placeholder = ph; }
+      if (calc) { i.addEventListener('input', recalcLife); }
+      return i;
+    }
+    row.appendChild(inp('li-rd-desc', r.description, 'Rider'));
+    row.appendChild(inp('li-rd-sum', r.sum, 'Sum'));
+    row.appendChild(inp('li-rd-term', r.term, 'Term'));
+    row.appendChild(inp('li-rd-ppt', r.ppt, 'PPT'));
+    row.appendChild(inp('li-rd-prem', r.premium, 'Premium', true));
+    var rm = el('button', 'portal-life-rider-rm', '×'); rm.type = 'button';
+    rm.addEventListener('click', function () { row.remove(); recalcLife(); });
+    row.appendChild(rm);
+    return row;
+  }
+  function collectRiders() {
+    return Array.prototype.map.call($('liRiders').querySelectorAll('.portal-life-rider'), function (row) {
+      return {
+        active: row.querySelector('.li-rd-active').checked,
+        description: row.querySelector('.li-rd-desc').value.trim(),
+        sum: liNum(row.querySelector('.li-rd-sum').value),
+        term: row.querySelector('.li-rd-term').value.trim(),
+        ppt: row.querySelector('.li-rd-ppt').value.trim(),
+        premium: liNum(row.querySelector('.li-rd-prem').value)
+      };
+    }).filter(function (r) { return r.description || r.sum || r.premium; });
+  }
+
+  // Auto-calc: Completion Date = Commencement + Term years; Total Rider Premium =
+  // Σ active riders; Total Installment Premium = Installment + GST.
+  function recalcLife() {
+    var comm = $('liCommDate').value, term = parseInt($('liTerm').value, 10);
+    if (comm && term > 0) {
+      var dt = new Date(comm);
+      if (!isNaN(dt.getTime())) { dt.setFullYear(dt.getFullYear() + term); $('liCompDate').value = dt.toISOString().slice(0, 10); }
+    } else { $('liCompDate').value = ''; }
+    var rp = 0;
+    Array.prototype.forEach.call($('liRiders').querySelectorAll('.portal-life-rider'), function (row) {
+      if (row.querySelector('.li-rd-active').checked) { rp += liNum(row.querySelector('.li-rd-prem').value); }
+    });
+    $('liRiderPrem').value = rp;
+    $('liTotalPrem').value = liNum($('liInstPrem').value) + liNum($('liGst').value);
+  }
+
+  function collectLifePolicy() {
+    var v = function (id) { return $(id).value.trim(); };
+    return {
+      lifePolicyId: (lifeEditing && lifeEditing.lifePolicyId) || '',
+      insurer: $('liInsurer').value, groupName: v('liGroupName'), groupCode: v('liGroupCode'),
+      lifeAssured: v('liLifeAssured'), dob: $('liDob').value, ageNbd: v('liAge'), gender: $('liGender').value,
+      panRegistered: $('liPan').checked,
+      policyNumber: v('liPolicyNumber'), plan: v('liPlan'), commencementDate: $('liCommDate').value,
+      completionDate: $('liCompDate').value, term: v('liTerm'), ppt: v('liPpt'), fupDate: $('liFup').value,
+      mode: $('liMode').value, extraClass: $('liExtraClass').value, rate: v('liRate'),
+      sumAssured: liNum($('liSumAssured').value), basicYearlyPremium: liNum($('liBasicPrem').value),
+      totalRiderPremium: liNum($('liRiderPrem').value), installmentPremium: liNum($('liInstPrem').value),
+      gst: liNum($('liGst').value), totalInstallmentPremium: liNum($('liTotalPrem').value),
+      riders: collectRiders(),
+      nomineeType: $('liNomType').value, nomineeName: v('liNomName'), nomineeRelationship: v('liNomRel')
+    };
+  }
+
+  function saveLifeForm() {
+    var err = $('lifeFormErr'); err.hidden = true;
+    var policy = collectLifePolicy();
+    if (!policy.policyNumber) { return fieldErr(err, 'Please enter a policy number.'); }
+    if (!policy.groupName) { return fieldErr(err, 'Please enter the group / policyholder name.'); }
+    var btn = $('lifeSaveBtn'); btn.disabled = true; var was = btn.textContent; btn.textContent = 'Saving…';
+    // Policy JSON can be large-ish → no-cors POST (opaque); re-read the list after.
+    gasUpload({ action: 'saveLifePolicy', email: getEmail(), account: lifeCtx.account, lifePolicyId: policy.lifePolicyId, policy: JSON.stringify(policy) })
+      .then(function () {
+        status('ok', 'Policy saved.'); showLifeDashboard();
+        setTimeout(loadLifePolicies, 900);
+      })
+      .catch(function () { fieldErr(err, 'Could not save. Please try again.'); })
+      .then(function () { btn.disabled = false; btn.textContent = was; });
+  }
+
+  function deleteLifeAction() {
+    if (!lifeEditing || !lifeEditing.lifePolicyId) { showLifeDashboard(); return; }
+    if (!window.confirm('Delete this life policy? This cannot be undone.')) { return; }
+    var btn = $('lifeDeleteBtn'); btn.disabled = true; btn.textContent = 'Deleting…';
+    gasGet({ action: 'deleteLifePolicy', email: getEmail(), lifePolicyId: lifeEditing.lifePolicyId })
+      .then(function (r) {
+        if (r && r.status === 'success') { status('ok', 'Policy deleted.'); showLifeDashboard(); loadLifePolicies(); }
+        else { status('err', (r && r.message) || 'Could not delete.'); }
+      })
+      .catch(function () { status('err', 'Could not delete.'); })
+      .then(function () { btn.disabled = false; btn.textContent = 'Delete'; });
+  }
+
+  // ---- Comprehensive Insurance Chart (client-side PDF) ----
+  var LIFE_AGENT = {
+    lines: ['402, Sheetal Apartment,', 'Azad Road,'],
+    mobile: '9769517676',
+    email: 'kevinzatakia10@gmail.com'
+  };
+  function chartDate(v) {
+    var d = v ? new Date(v) : null;
+    if (!d || isNaN(d.getTime())) { return v || ''; }
+    return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + String(d.getFullYear()).slice(-2);
+  }
+  function modeAbbr(m) {
+    m = String(m || '').toLowerCase();
+    if (m.indexOf('year') >= 0) { return 'Yly.'; }
+    if (m.indexOf('half') >= 0) { return 'Hly.'; }
+    if (m.indexOf('quart') >= 0) { return 'Qly.'; }
+    if (m.indexOf('month') >= 0) { return 'Mly.'; }
+    if (m.indexOf('single') >= 0) { return 'Sgl.'; }
+    return m ? m.slice(0, 3) : '';
+  }
+  function planNumber(plan) { var mt = String(plan || '').match(/^\s*(\d+)/); return mt ? mt[1] : ''; }
+  function planName(plan) { return String(plan || '').replace(/^\s*\d+\s*[-–—]\s*/, '').trim() || String(plan || ''); }
+  function inLakh(n) { return Number(n || 0).toLocaleString('en-IN'); }
+
+  function groupByLifeAssured(policies) {
+    var map = {}, order = [];
+    policies.forEach(function (p) {
+      var key = (p.lifeAssured || p.groupName || 'Others').trim() || 'Others';
+      if (!map[key]) { map[key] = []; order.push(key); }
+      map[key].push(p);
+    });
+    return order.map(function (k) { return { name: k, policies: map[k] }; });
+  }
+  // Best-available account name + phone for the chart's centered meta (client uses
+  // their own profile/family; admin uses the client they're viewing).
+  function chartAccountMeta() {
+    var name, phone = '';
+    if (lifeCtx.canEdit && selectedUser) {
+      name = ((selectedUser.firstName || '') + ' ' + (selectedUser.lastName || '')).trim() || selectedUser.email;
+      phone = selectedUser.phone || '';
+    } else {
+      name = family.pocName || ((profile.firstName || '') + ' ' + (profile.lastName || '')).trim() || getName();
+      phone = profile.phone || '';
+    }
+    return { name: String(name || 'Account').toUpperCase(), phone: phone };
+  }
+
+  function exportLifeChart() {
+    if (!window.jspdf || !window.jspdf.jsPDF) { status('err', 'PDF tools are still loading — please try again in a moment.'); return; }
+    if (!lifePolicies.length) { status('err', 'There are no life policies to export.'); return; }
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    if (typeof doc.autoTable !== 'function') { status('err', 'PDF table plugin failed to load — please refresh.'); return; }
+    var W = doc.internal.pageSize.getWidth(), M = 32;
+
+    // Agent contact (top-left).
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(60);
+    var ay = M + 6;
+    LIFE_AGENT.lines.forEach(function (l) { doc.text(l, M, ay); ay += 12; });
+    doc.text('Mob: ' + LIFE_AGENT.mobile, M, ay); ay += 12;
+    doc.text('Mail ID: ' + LIFE_AGENT.email, M, ay);
+
+    // Title band.
+    var bandY = M + 62;
+    doc.setFillColor(238, 227, 198); doc.rect(M, bandY, W - 2 * M, 24, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(20);
+    doc.text('Comprehensive Insurance Chart', M + 8, bandY + 16);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text('As on  ' + chartDate(new Date()), W - M - 8, bandY + 16, { align: 'right' });
+
+    // Account meta (centered).
+    var meta = chartAccountMeta();
+    var groupCode = '';
+    for (var gi = 0; gi < lifePolicies.length; gi++) { if (lifePolicies[gi].groupCode) { groupCode = lifePolicies[gi].groupCode; break; } }
+    var cy = bandY + 44;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(20);
+    doc.text(meta.name + ' and Family' + (groupCode ? '   [ ' + groupCode + ' ]' : ''), W / 2, cy, { align: 'center' }); cy += 16;
+    if (meta.phone) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(70);
+      doc.text('Mobile : ' + meta.phone, W / 2, cy, { align: 'center' }); cy += 12;
+    }
+
+    // Table grouped by Life Assured; extra active riders get their own rows.
+    var COLN = 10;
+    var head = [['Sr', 'Policy No.', 'Com. Date', 'Pl/Tm/PT', 'Plan Name', 'Sum Assured', 'Premium', 'Md', 'Nominee', 'Accidental Riskcover']];
+    var bodyRows = [], sr = 1;
+    groupByLifeAssured(lifePolicies).forEach(function (grp) {
+      bodyRows.push([{ content: grp.name, colSpan: COLN, styles: { fontStyle: 'bold', halign: 'center', fillColor: [235, 240, 238], textColor: 20 } }]);
+      grp.policies.forEach(function (p) {
+        var riders = (p.riders || []).filter(function (r) { return r.active !== false && (r.description || r.sum); });
+        var pltmpt = [planNumber(p.plan), p.term, p.ppt].filter(function (x) { return x !== '' && x != null; }).join('/');
+        var prem = p.totalInstallmentPremium || p.installmentPremium;
+        bodyRows.push([
+          String(sr++), p.policyNumber || '', chartDate(p.commencementDate), pltmpt, planName(p.plan),
+          p.sumAssured ? inLakh(p.sumAssured) : '', prem ? inLakh(prem) : '', modeAbbr(p.mode),
+          p.nomineeName || '', (riders[0] && riders[0].sum) ? inLakh(riders[0].sum) : ''
+        ]);
+        riders.slice(1).forEach(function (r) {
+          bodyRows.push(['', '', '', '', r.description || '', '', r.premium ? inLakh(r.premium) : '', '', '', r.sum ? inLakh(r.sum) : '']);
+        });
+      });
+    });
+
+    doc.autoTable({
+      head: head, body: bodyRows, startY: cy + 8, margin: { left: M, right: M },
+      styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
+      headStyles: { fillColor: [23, 105, 74], textColor: 255, fontStyle: 'bold', halign: 'center' },
+      columnStyles: { 0: { halign: 'center', cellWidth: 24 }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'center' }, 9: { halign: 'right' } },
+      theme: 'grid'
+    });
+
+    doc.save('Comprehensive-Insurance-Chart' + (groupCode ? '-' + groupCode : '') + '.pdf');
+  }
+
+  // ---- Life module wiring ----
+  $('lifeEntryCard').addEventListener('click', function () { openLifeView(family.pocEmail || getEmail(), false, 'client-dashboard-view'); });
+  $('adminLifeBtn').addEventListener('click', function () { if (selectedUser) { openLifeView(selectedUser.email, true, 'admin-dashboard-view'); } });
+  $('lifeBack').addEventListener('click', function () { showView(lifeCtx.returnView); });
+  $('lifeAddBtn').addEventListener('click', function () { openLifeForm(null); });
+  $('lifeFormBack').addEventListener('click', showLifeDashboard);
+  $('lifeSaveBtn').addEventListener('click', saveLifeForm);
+  $('lifeDeleteBtn').addEventListener('click', deleteLifeAction);
+  $('liAddRider').addEventListener('click', function () { $('liRiders').appendChild(riderRow({})); });
+  ['liCommDate', 'liTerm', 'liInstPrem', 'liGst'].forEach(function (id) { $(id).addEventListener('input', recalcLife); });
+  $('lifeExportBtn').addEventListener('click', exportLifeChart);
 
   // Go.
   route();
