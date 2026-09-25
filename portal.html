@@ -466,6 +466,9 @@
                 <li class="portal-empty">Loading…</li>
               </ul>
             </div>
+            <div class="portal-danger-zone">
+              <button type="button" class="btn btn-danger portal-block" id="deleteAccountBtn">🗑 Delete this account</button>
+            </div>
           </div>
         </div>
       </div>
@@ -509,14 +512,12 @@
             <legend>Policy Holder's Details</legend>
             <div class="portal-life-grid">
               <label class="f-lbl">Group Name<input class="f" id="liGroupName" autocomplete="off"></label>
-              <label class="f-lbl">Group Code<input class="f" id="liGroupCode" autocomplete="off"></label>
               <label class="f-lbl">Life Assured<input class="f" id="liLifeAssured" list="liAssuredList" autocomplete="off"><datalist id="liAssuredList"></datalist></label>
               <label class="f-lbl">Date of Birth<input class="f" id="liDob" type="date"></label>
               <label class="f-lbl">Age (NBD)<input class="f" id="liAge" type="text" inputmode="numeric"></label>
               <label class="f-lbl">Gender
                 <select class="f portal-select" id="liGender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select>
               </label>
-              <label class="f-lbl portal-life-check"><input type="checkbox" id="liPan"> PAN Registered</label>
             </div>
           </fieldset>
 
@@ -528,7 +529,7 @@
                 <select class="f portal-select" id="liInsurer"><option>LIC</option><option>HDFC Life</option><option>Tata AIA</option><option>Max Life</option><option>SBI Life</option><option>Other</option></select>
               </label>
               <label class="f-lbl">Policy Number<input class="f" id="liPolicyNumber" autocomplete="off"></label>
-              <label class="f-lbl">Plan (name/number)<input class="f" id="liPlan" autocomplete="off"></label>
+              <label class="f-lbl">Plan (name/number)<input class="f" id="liPlan" list="liPlanList" autocomplete="off" placeholder="Search plan no. or name…"><datalist id="liPlanList"></datalist></label>
               <label class="f-lbl">Commencement Date<input class="f" id="liCommDate" type="date"></label>
               <label class="f-lbl">Term (years)<input class="f" id="liTerm" type="text" inputmode="numeric"></label>
               <label class="f-lbl">Completion Date<input class="f" id="liCompDate" type="date" readonly></label>
@@ -741,6 +742,7 @@
        before portal.js so window.jspdf + the autoTable plugin are ready. -->
   <script src="js/jspdf.umd.min.js" defer></script>
   <script src="js/jspdf.plugin.autotable.min.js" defer></script>
+  <script src="js/lic-plans.js" defer></script>
   <script src="js/portal.js" defer></script>
   <script src="js/pwa.js" defer></script>
 </body>

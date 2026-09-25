@@ -793,3 +793,7 @@ button.portal-life-polno:hover { background: var(--green-tint); }
 .portal-life-rider .f { padding: 7px 9px; font-size: 12.5px; }
 .portal-life-rider-rm { flex: none; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 16px; color: #b42318; background: #fbe9e7; border: 1px solid #f5c6bf; }
 .portal-life-addrider { margin-top: 12px; }
+
+/* Danger zone (admin: delete an account) */
+.portal-danger-zone { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.portal-danger-zone .btn-danger { margin-top: 0; }

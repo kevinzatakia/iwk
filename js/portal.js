@@ -1807,6 +1807,26 @@
 
   $('viewingClose').addEventListener('click', closeViewing);
 
+  // Delete a client's login account (admin, bottom of the viewing panel). Login-only:
+  // their data rows stay; they simply can't log in any more.
+  $('deleteAccountBtn').addEventListener('click', function () {
+    if (!selectedUser || !selectedUser.email) { return; }
+    var email = selectedUser.email;
+    portalConfirm('Delete the login account for ' + email + '?\n\nThey will no longer be able to log in. Their documents, policies and profiles stay on record. This cannot be undone.',
+      { title: 'Delete account', yes: 'Delete account' })
+      .then(function (ok) {
+        if (!ok) { return; }
+        var btn = $('deleteAccountBtn'); btn.disabled = true; btn.textContent = 'Deleting…';
+        gasGet({ action: 'deleteAccount', email: getEmail(), targetEmail: email })
+          .then(function (r) {
+            if (r && r.status === 'success') { status('ok', 'Account deleted.'); $('viewingFolder').hidden = true; selectedUser = null; loadAdmin(); }
+            else { status('err', (r && r.message) || 'Could not delete the account.'); }
+          })
+          .catch(function () { status('err', 'Could not delete the account.'); })
+          .then(function () { btn.disabled = false; btn.textContent = '🗑 Delete this account'; });
+      });
+  });
+
   // ---- Admin "Send a Policy": multi-file, drag-drop, per-file expiry ----
   var adminStaged = []; // [{ file, expiry, si }]
 
@@ -2039,9 +2059,9 @@
     Object.keys(names).forEach(function (n) { var o = document.createElement('option'); o.value = n; dl.appendChild(o); });
 
     var g = function (id, v) { $(id).value = (v == null) ? '' : v; };
-    g('liGroupName', p && p.groupName); g('liGroupCode', p && p.groupCode); g('liLifeAssured', p && p.lifeAssured);
+    g('liGroupName', p && p.groupName); g('liLifeAssured', p && p.lifeAssured);
     g('liDob', p && p.dob); g('liAge', p && p.ageNbd); $('liGender').value = (p && p.gender) || '';
-    $('liPan').checked = !!(p && p.panRegistered); $('liInsurer').value = (p && p.insurer) || 'LIC';
+    $('liInsurer').value = (p && p.insurer) || 'LIC';
     g('liPolicyNumber', p && p.policyNumber); g('liPlan', p && p.plan);
     g('liCommDate', p && p.commencementDate); g('liTerm', p && p.term); g('liCompDate', p && p.completionDate);
     g('liPpt', p && p.ppt); g('liFup', p && p.fupDate);
@@ -2113,9 +2133,12 @@
     var v = function (id) { return $(id).value.trim(); };
     return {
       lifePolicyId: (lifeEditing && lifeEditing.lifePolicyId) || '',
-      insurer: $('liInsurer').value, groupName: v('liGroupName'), groupCode: v('liGroupCode'),
+      insurer: $('liInsurer').value, groupName: v('liGroupName'),
+      // Group Code and PAN Registered inputs were removed from the form; preserve any
+      // existing values on the edited policy (Group Code still feeds the PDF export).
+      groupCode: (lifeEditing && lifeEditing.groupCode) || '',
       lifeAssured: v('liLifeAssured'), dob: $('liDob').value, ageNbd: v('liAge'), gender: $('liGender').value,
-      panRegistered: $('liPan').checked,
+      panRegistered: !!(lifeEditing && lifeEditing.panRegistered),
       policyNumber: v('liPolicyNumber'), plan: v('liPlan'), commencementDate: $('liCommDate').value,
       completionDate: $('liCompDate').value, term: v('liTerm'), ppt: v('liPpt'), fupDate: $('liFup').value,
       mode: $('liMode').value, extraClass: $('liExtraClass').value, rate: v('liRate'),
@@ -2279,6 +2302,15 @@
   $('lifeSaveBtn').addEventListener('click', saveLifeForm);
   $('lifeDeleteBtn').addEventListener('click', deleteLifeAction);
   $('liAddRider').addEventListener('click', function () { $('liRiders').appendChild(riderRow({})); });
+  // Populate the searchable Plan datalist from the LIC master list (js/lic-plans.js).
+  (function () {
+    var dl = $('liPlanList');
+    if (dl && window.LIC_PLANS && !dl.childElementCount) {
+      var frag = document.createDocumentFragment();
+      window.LIC_PLANS.forEach(function (p) { var o = document.createElement('option'); o.value = p; frag.appendChild(o); });
+      dl.appendChild(frag);
+    }
+  })();
   ['liCommDate', 'liTerm', 'liInstPrem', 'liGst'].forEach(function (id) { $(id).addEventListener('input', recalcLife); });
   $('lifeExportBtn').addEventListener('click', exportLifeChart);
 
