@@ -771,6 +771,19 @@ button.portal-life-polno:hover { background: var(--green-tint); }
 .portal-life-datagrid .v.chip { background: var(--green-tint); color: var(--green-deep); border-radius: 6px; padding: 1px 8px; }
 .portal-life-nominee { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12.5px; color: var(--ink-soft); }
 
+/* Mobile: stack each field on its own full-width row so long values (dates,
+   sum assured, premium) are never clipped by the card's overflow:hidden — the
+   two-column grid squeezes the right column off-card below ~430px. */
+@media (max-width: 520px) {
+  .portal-life-card { padding: 14px; }
+  .portal-life-datagrid { grid-template-columns: 1fr; gap: 0; font-size: 12.5px; }
+  .portal-life-datagrid > div { min-width: 0; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .portal-life-datagrid > div:last-child { border-bottom: none; }
+  .portal-life-datagrid .k { white-space: nowrap; }
+  .portal-life-datagrid .v { min-width: 0; padding-left: 12px; }
+  .portal-life-datagrid .v.chip { display: inline-block; width: auto; }
+}
+
 /* Admin form */
 .portal-life-formbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
 .portal-life-formbar h3 { font-family: var(--serif); font-weight: 700; font-size: 20px; color: var(--green-deep); }

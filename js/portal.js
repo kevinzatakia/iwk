@@ -2181,9 +2181,8 @@
 
   // ---- Comprehensive Insurance Chart (client-side PDF) ----
   var LIFE_AGENT = {
-    lines: ['402, Sheetal Apartment,', 'Azad Road,'],
     mobile: '9769517676',
-    email: 'kevinzatakia10@gmail.com'
+    email: 'admin@insureitwithkevin.in'
   };
   function chartDate(v) {
     var d = v ? new Date(v) : null;
@@ -2234,15 +2233,21 @@
     if (typeof doc.autoTable !== 'function') { status('err', 'PDF table plugin failed to load — please refresh.'); return; }
     var W = doc.internal.pageSize.getWidth(), M = 32;
 
-    // Agent contact (top-left).
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(60);
+    // Agent logo (top-left) — reuse the website logo already loaded in the portal
+    // header (a base64 data URL <img>), so there's a single source of truth.
     var ay = M + 6;
-    LIFE_AGENT.lines.forEach(function (l) { doc.text(l, M, ay); ay += 12; });
+    var logoEl = document.querySelector('.portal-brand img');
+    if (logoEl && logoEl.src) {
+      var logoW = 54, logoH = logoW * 435 / 572; // logo is 572×435
+      try { doc.addImage(logoEl.src, 'PNG', M, M - 6, logoW, logoH); ay = M - 6 + logoH + 12; } catch (e) { ay = M + 6; }
+    }
+    // Agent contact (below the logo).
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(60);
     doc.text('Mob: ' + LIFE_AGENT.mobile, M, ay); ay += 12;
     doc.text('Mail ID: ' + LIFE_AGENT.email, M, ay);
 
     // Title band.
-    var bandY = M + 62;
+    var bandY = M + 78;
     doc.setFillColor(238, 227, 198); doc.rect(M, bandY, W - 2 * M, 24, 'F');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(20);
     doc.text('Comprehensive Insurance Chart', M + 8, bandY + 16);
