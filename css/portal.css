@@ -83,6 +83,7 @@ body.portal { min-height: 100vh; }
 .portal-status[hidden] { display: none; }
 .portal-status.ok { background: var(--green-tint); color: var(--green-deep); border: 1px solid rgba(23, 105, 74, .2); }
 .portal-status.err { background: #fbe9e7; color: #b42318; border: 1px solid #f5c6bf; }
+.portal-status.info { background: #fff7e6; color: #8a5a00; border: 1px solid #f2d79b; }
 
 /* ---------- cards (auth + hero) ---------- */
 .portal-card {

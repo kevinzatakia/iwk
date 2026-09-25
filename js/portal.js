@@ -25,7 +25,7 @@
     statusEl.hidden = false;
     statusEl.className = 'portal-status ' + kind;
     statusEl.textContent = msg;
-    if (kind === 'ok') { setTimeout(function () { statusEl.hidden = true; }, 4000); }
+    if (kind === 'ok' || kind === 'info') { setTimeout(function () { statusEl.hidden = true; }, kind === 'info' ? 6000 : 4000); }
   }
   function clearStatus() { statusEl.hidden = true; }
   function fieldErr(node, msg) { node.hidden = false; node.textContent = msg; }
@@ -63,9 +63,11 @@
   //     duplicate it).
   var jsonpSeq = 0;
   var MAX_INFLIGHT = 3;        // headroom under the browser's ~6 connections/host
-  var JSONP_TIMEOUT = 25000;   // per attempt (generous for Apps Script cold starts;
-                               // the cap + fast-fail below are what prevent the wedge)
-  var JSONP_RETRIES = 1;
+  var JSONP_TIMEOUT = 12000;   // per attempt. The backend is now fast (memoised Sheet
+                               // open + a short server cache), so 12s still covers an
+                               // Apps Script cold start while failing a stuck call ~2×
+                               // sooner. A cache-first paint makes any retry invisible.
+  var JSONP_RETRIES = 2;       // reads only (isRetryableRead); backoff 800ms → 1600ms
   var jsonpInFlight = 0;
   var jsonpQueue = [];
 
@@ -341,28 +343,56 @@
     up.innerHTML = ''; up.appendChild(el('li', 'portal-empty', 'Loading…'));
   }
 
-  // ONE cold-load round-trip replacing the old 5–6 separate JSONP reads (the
-  // dominant load latency). Fans the single payload out to the same appliers the
-  // individual loaders use.
+  // Bootstrap payload from the last successful load, kept in localStorage keyed by
+  // email so the portal can paint INSTANTLY on open (stale-while-revalidate) instead
+  // of showing a blank screen until Apps Script responds. All access is guarded — a
+  // private window or full storage just falls back to the network-only path.
+  var bootLife = null; // life policies from the latest bootstrap, to seed the Life view
+  function bootCacheKey() { return 'portalBoot:' + String(getEmail() || '').toLowerCase(); }
+  function readBootCache() {
+    try { var s = localStorage.getItem(bootCacheKey()); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+  }
+  function writeBootCache(b) {
+    try { localStorage.setItem(bootCacheKey(), JSON.stringify(b)); } catch (e) {}
+  }
+  function applyBootstrap(b) {
+    applyProfile(b.profile);
+    applyFamily(b.family);
+    renderFamilyProfiles((b.subProfiles && b.subProfiles.profiles) || []);
+    applyNotifications(b.notifications);
+    applyDocuments(b.documents);
+    applyLifePolicies(b.lifePolicies);
+  }
+
+  // ONE cold-load round-trip replacing the old 5–6 separate JSONP reads (the dominant
+  // load latency), now with stale-while-revalidate: paint from the local cache first
+  // (no blank screen / timeout on a normal open), then refresh in the background.
   function loadBootstrap() {
+    var cached = readBootCache();
+    var shownCache = false;
+    if (cached && cached.status === 'success') {
+      applyBootstrap(cached);
+      shownCache = true;
+      status('info', 'Updating…');
+    }
     gasGet({ action: 'bootstrap', email: getEmail() })
       .then(function (b) {
         if (b && b.status === 'success') {
-          applyProfile(b.profile);
-          applyFamily(b.family);
-          renderFamilyProfiles((b.subProfiles && b.subProfiles.profiles) || []);
-          applyNotifications(b.notifications);
-          applyDocuments(b.documents);
+          applyBootstrap(b);
+          writeBootCache(b);
+          clearStatus();
           return;
         }
         // Old backend without the bootstrap action → use the individual reads once.
         // (Only this case falls back; a timeout must NOT, or it piles 5 more slow
         // calls onto Apps Script's serialized per-user queue.)
         if (b && /unknown action/i.test(b.message || '')) { loadClientLegacy(); return; }
-        status('err', (b && b.message) || 'Could not load your portal. Please pull to refresh.');
+        if (shownCache) { status('info', 'Showing your saved data — couldn’t reach the server just now.'); }
+        else { status('err', (b && b.message) || 'Could not load your portal. Please pull to refresh.'); }
       })
       .catch(function (e) {
-        status('err', (e && e.message) || 'Loading is taking longer than usual. Please refresh.');
+        if (shownCache) { status('info', 'Showing your saved data — couldn’t reach the server just now.'); }
+        else { status('err', (e && e.message) || 'Loading is taking longer than usual. Please refresh.'); }
       });
   }
 
@@ -1984,14 +2014,32 @@
   }
   function showLifeDashboard() { $('lifeDashboard').hidden = false; $('lifeFormPanel').hidden = true; }
 
+  // Life policies delivered inside the bootstrap payload (client's own POC account),
+  // so the client's Life view can open instantly with no extra round-trip.
+  function applyLifePolicies(data) {
+    bootLife = (data && data.status === 'success') ? data : null;
+  }
+
   function loadLifePolicies() {
-    var wrap = $('lifeCards'); wrap.innerHTML = ''; wrap.appendChild(el('div', 'portal-empty', 'Loading…'));
+    var wrap = $('lifeCards');
+    // Instant paint from the bootstrap payload when a client opens their own account.
+    var seeded = false;
+    if (!lifeCtx.canEdit && bootLife && bootLife.policies &&
+        String(bootLife.account || '').toLowerCase() === lifeCtx.account) {
+      lifePolicies = bootLife.policies; renderLifeCards(); seeded = true;
+    } else {
+      wrap.innerHTML = ''; wrap.appendChild(el('div', 'portal-empty', 'Loading…'));
+    }
+    // Revalidate in the background (admin always fetches fresh; the seeded client view
+    // stays put if this fails).
     gasGet({ action: 'getLifePolicies', email: getEmail(), account: lifeCtx.account })
       .then(function (data) {
         lifePolicies = (data && data.status === 'success' && data.policies) || [];
         renderLifeCards();
       })
-      .catch(function () { wrap.innerHTML = ''; wrap.appendChild(el('div', 'portal-empty', 'Could not load life policies.')); });
+      .catch(function () {
+        if (!seeded) { wrap.innerHTML = ''; wrap.appendChild(el('div', 'portal-empty', 'Could not load life policies.')); }
+      });
   }
 
   function lifeRow(k, v, chip) {
@@ -2022,6 +2070,7 @@
       card.appendChild(top);
       card.appendChild(el('div', 'portal-life-plan', p.plan || 'Policy'));
       var grid = el('div', 'portal-life-datagrid');
+      grid.appendChild(lifeRow('Status', p.policyStatus || 'In Force'));
       grid.appendChild(lifeRow('Mode', p.mode));
       grid.appendChild(lifeRow('Fup Date', p.fupDate ? fmtDate(p.fupDate) : ''));
       grid.appendChild(lifeRow('Term', p.term));
@@ -2062,6 +2111,7 @@
     g('liGroupName', p && p.groupName); g('liLifeAssured', p && p.lifeAssured);
     g('liDob', p && p.dob); g('liAge', p && p.ageNbd); $('liGender').value = (p && p.gender) || '';
     $('liInsurer').value = (p && p.insurer) || 'LIC';
+    $('liStatus').value = (p && p.policyStatus) || 'In Force';
     g('liPolicyNumber', p && p.policyNumber); g('liPlan', p && p.plan);
     g('liCommDate', p && p.commencementDate); g('liTerm', p && p.term); g('liCompDate', p && p.completionDate);
     g('liPpt', p && p.ppt); g('liFup', p && p.fupDate);
@@ -2133,7 +2183,7 @@
     var v = function (id) { return $(id).value.trim(); };
     return {
       lifePolicyId: (lifeEditing && lifeEditing.lifePolicyId) || '',
-      insurer: $('liInsurer').value, groupName: v('liGroupName'),
+      insurer: $('liInsurer').value, policyStatus: $('liStatus').value, groupName: v('liGroupName'),
       // Group Code and PAN Registered inputs were removed from the form; preserve any
       // existing values on the edited policy (Group Code still feeds the PDF export).
       groupCode: (lifeEditing && lifeEditing.groupCode) || '',
